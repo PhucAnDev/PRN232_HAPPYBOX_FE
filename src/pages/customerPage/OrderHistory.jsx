@@ -7,8 +7,8 @@ import {
   Lock,
   LogOut
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { Button } from "../../components/ui/button";
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 function OrderHistory({ onNavigate, onLogout }) {
   const [activeSection, setActiveSection] = useState("orders");
   const [activeTab, setActiveTab] = useState("all");
@@ -329,3 +329,4 @@ function OrderHistory({ onNavigate, onLogout }) {
 export {
   OrderHistory
 };
+

@@ -8,8 +8,8 @@ import {
   LogOut,
   Upload
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 function UserProfile({ onNavigate, onLogout }) {
   const [activeSection, setActiveSection] = useState("account");
   const [fullName, setFullName] = useState("Nguy\u1EC5n V\u0103n An");
@@ -376,3 +376,4 @@ function UserProfile({ onNavigate, onLogout }) {
 export {
   UserProfile
 };
+

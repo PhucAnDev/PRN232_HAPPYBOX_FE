@@ -1,30 +1,44 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Eye, EyeOff, Mail, Lock, User, Chrome } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { useAppDispatch } from "../../app/hooks";
+import { useLoginMutation } from "../../features/auth/authApi";
+import { setCredentials } from "../../features/auth/authSlice";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
 function LoginRegister({ onNavigate, onLoginSuccess }) {
+  const dispatch = useAppDispatch();
+  const [login, { isLoading }] = useLoginMutation();
   const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    console.log("Login:", { loginEmail, loginPassword });
-    if (loginEmail === "admin@gmail.com" && loginPassword === "12345") {
-      onNavigate?.("admin");
-    } else if (loginEmail === "user@gmail.com" && loginPassword === "12345") {
+    setLoginError("");
+    try {
+      const response = await login({
+        email: loginEmail,
+        password: loginPassword
+      }).unwrap();
+      dispatch(setCredentials({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken
+      }));
       onLoginSuccess?.();
       onNavigate?.("home");
-    } else {
-      alert("Email ho\u1EB7c m\u1EADt kh\u1EA9u kh\xF4ng \u0111\xFAng!");
+    } catch (error) {
+      const message = error?.data?.message ?? error?.error ?? "Login failed, please try again.";
+      setLoginError(message);
     }
   };
+
   const handleRegister = (e) => {
     e.preventDefault();
     console.log("Register:", { registerName, registerEmail, registerPassword });
@@ -214,11 +228,13 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
                 {
     /* Login Button */
   }
+                {loginError && <p className="text-sm text-red-500">{loginError}</p>}
                 <Button
     type="submit"
     className="w-full bg-[#D4AF37] hover:bg-[#B8962E] text-white py-6 text-lg font-bold rounded-lg shadow-lg"
+    disabled={isLoading}
   >
-                  Đăng Nhập
+                  {isLoading ? "Đang xử lý..." : "Đăng Nhập"}
                 </Button>
 
                 {
@@ -470,3 +486,4 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
 export {
   LoginRegister
 };
+

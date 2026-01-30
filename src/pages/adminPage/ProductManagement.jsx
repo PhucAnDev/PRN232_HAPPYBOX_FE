@@ -9,8 +9,8 @@ import {
   Package,
   AlertTriangle
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 function ProductManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -741,3 +741,4 @@ function ProductManagement() {
 export {
   ProductManagement
 };
+

@@ -1,7 +1,7 @@
 import { Search, Package, ClipboardList, Truck, CheckCircle, Phone, MapPin, Calendar, User, Mail, CreditCard } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { useState } from "react";
 function OrderTracking({ onNavigate }) {
   const [orderId, setOrderId] = useState("");
@@ -469,3 +469,4 @@ function OrderTracking({ onNavigate }) {
 export {
   OrderTracking
 };
+

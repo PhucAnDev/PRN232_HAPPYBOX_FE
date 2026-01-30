@@ -13,8 +13,8 @@ import {
   StickyNote,
   CreditCard
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 function OrderManagement() {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -1108,3 +1108,4 @@ function OrderManagement() {
 export {
   OrderManagement
 };
+

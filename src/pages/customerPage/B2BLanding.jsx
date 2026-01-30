@@ -1,7 +1,7 @@
 import { Package, Percent, Truck, FileText, CheckCircle, Download, Phone, Mail, MapPin, Award } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback";
 import { useState, useMemo } from "react";
 function B2BLanding({ onNavigate }) {
   const [formData, setFormData] = useState({
@@ -683,3 +683,4 @@ function B2BLanding({ onNavigate }) {
 export {
   B2BLanding
 };
+

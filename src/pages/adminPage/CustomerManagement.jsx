@@ -13,8 +13,8 @@ import {
   User,
   Crown
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 function CustomerManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -774,3 +774,4 @@ function CustomerManagement() {
 export {
   CustomerManagement
 };
+

@@ -11,9 +11,9 @@ import {
   Wallet,
   ArrowLeft
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Header } from "./Header";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Header } from "../../components/Header";
 function CheckoutPage({ onNavigate, cartCount = 1 }) {
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -545,3 +545,4 @@ function CheckoutPage({ onNavigate, cartCount = 1 }) {
 export {
   CheckoutPage
 };
+

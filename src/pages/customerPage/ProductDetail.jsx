@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronRight, Minus, Plus, ShoppingCart, Truck, Award, RefreshCw, Star } from "lucide-react";
-import { Button } from "./ui/button";
+import { Button } from "../../components/ui/button";
 function ProductDetail({ onNavigate }) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -539,3 +539,4 @@ function ProductDetail({ onNavigate }) {
 export {
   ProductDetail
 };
+

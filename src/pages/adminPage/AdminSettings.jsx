@@ -14,8 +14,8 @@ import {
   Key,
   AlertCircle
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 function AdminSettings() {
   const [activeTab, setActiveTab] = useState("general");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -666,3 +666,4 @@ function AdminSettings() {
 export {
   AdminSettings
 };
+

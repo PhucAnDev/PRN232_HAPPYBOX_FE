@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, Heart, ShoppingCart, SlidersHorizontal, ChevronLeft, Star, Sparkles } from "lucide-react";
-import { Button } from "./ui/button";
-import { Slider } from "./ui/slider";
+import { Button } from "../../components/ui/button";
+import { Slider } from "../../components/ui/slider";
 function IndividualProducts({ onNavigate }) {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedOrigins, setSelectedOrigins] = useState([]);
@@ -587,3 +587,4 @@ function IndividualProducts({ onNavigate }) {
 export {
   IndividualProducts
 };
+

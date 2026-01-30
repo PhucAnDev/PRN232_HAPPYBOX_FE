@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, Check, X, ChevronLeft } from "lucide-react";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
 function CustomGiftBuilder({ onNavigate }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPackaging, setSelectedPackaging] = useState(null);
@@ -522,3 +522,4 @@ function CustomGiftBuilder({ onNavigate }) {
 export {
   CustomGiftBuilder
 };
+

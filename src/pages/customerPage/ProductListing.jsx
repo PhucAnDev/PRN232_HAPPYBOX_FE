@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronRight, Heart, ShoppingCart, SlidersHorizontal, ChevronLeft, Package } from "lucide-react";
-import { Button } from "./ui/button";
+import { Button } from "../../components/ui/button";
 function ProductListing({ onNavigate }) {
   const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
   const [selectedMaterials, setSelectedMaterials] = useState([]);
@@ -591,3 +591,4 @@ function ProductListing({ onNavigate }) {
 export {
   ProductListing
 };
+

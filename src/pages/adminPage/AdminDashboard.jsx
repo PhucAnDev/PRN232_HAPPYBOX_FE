@@ -4,8 +4,8 @@ import { ProductManagement } from "./ProductManagement";
 import { AdminSettings } from "./AdminSettings";
 import { CustomerManagementSplit } from "./CustomerManagementSplit";
 import { RevenueReport } from "./RevenueReport";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
 import {
   LayoutDashboard,
@@ -512,3 +512,4 @@ function AdminDashboard({ onNavigate }) {
 export {
   AdminDashboard
 };
+
