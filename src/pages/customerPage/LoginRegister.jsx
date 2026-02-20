@@ -1,14 +1,17 @@
-﻿import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Eye, EyeOff, Mail, Lock, User, Chrome } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAppDispatch } from "../../app/hooks";
-import { useLoginMutation } from "../../features/auth/authApi";
+import { useLoginMutation, useGoogleLoginMutation } from "../../features/auth/authApi";
 import { setCredentials } from "../../features/auth/authSlice";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
 function LoginRegister({ onNavigate, onLoginSuccess }) {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const dispatch = useAppDispatch();
   const [login, { isLoading }] = useLoginMutation();
+  const [googleLogin, { isLoading: isGoogleLoading }] = useGoogleLoginMutation();
   const [activeTab, setActiveTab] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -19,6 +22,7 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
+  const isSubmitting = isLoading || isGoogleLoading;
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError("");
@@ -37,6 +41,42 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
       const message = error?.data?.message ?? error?.error ?? "Login failed, please try again.";
       setLoginError(message);
     }
+  };
+
+  const handleGoogleCredentialResponse = useCallback(async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setLoginError("Không nhận được credential từ Google.");
+      return;
+    }
+    setLoginError("");
+    try {
+      const response = await googleLogin({
+        credential: credentialResponse.credential
+      }).unwrap();
+      dispatch(setCredentials({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken
+      }));
+      onLoginSuccess?.();
+      onNavigate?.("home");
+    } catch (error) {
+      const rawMessage = error?.data ?? error?.error;
+      const message = typeof rawMessage === "string" ? rawMessage : "Google login failed, please try again.";
+      setLoginError(message);
+    }
+  }, [dispatch, googleLogin, onLoginSuccess, onNavigate]);
+
+  const handleGoogleLoginClick = () => {
+    setLoginError("");
+    if (!googleClientId) {
+      setLoginError("Please set VITE_GOOGLE_CLIENT_ID in your .env file to enable Google login.");
+      return;
+    }
+    if (typeof window === "undefined" || !window.google?.accounts?.id) {
+      setLoginError("Google Sign-In chưa sẵn sàng, thử lại sau.");
+      return;
+    }
+    window.google.accounts.id.prompt();
   };
 
   const handleRegister = (e) => {
@@ -228,14 +268,14 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
                 {
     /* Login Button */
   }
-                {loginError && <p className="text-sm text-red-500">{loginError}</p>}
-                <Button
+                  {loginError && <p className="text-sm text-red-500">{loginError}</p>}
+                  <Button
     type="submit"
     className="w-full bg-[#D4AF37] hover:bg-[#B8962E] text-white py-6 text-lg font-bold rounded-lg shadow-lg"
-    disabled={isLoading}
+    disabled={isSubmitting}
   >
-                  {isLoading ? "Đang xử lý..." : "Đăng Nhập"}
-                </Button>
+                    {isSubmitting ? "Đang xử lý..." : "Đăng Nhập"}
+                  </Button>
 
                 {
     /* Divider */
@@ -254,15 +294,15 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
                 {
     /* Social Login */
   }
-                <div>
-                  <Button
-    type="button"
-    variant="outline"
-    className="w-full py-6 border-2 border-gray-300 hover:border-[#B71C1C] hover:bg-gray-50"
-  >
-                    <Chrome className="h-5 w-5 mr-2" />
-                    Google
-                  </Button>
+                <div className="flex flex-col items-center gap-3">
+                  {!googleClientId && <p className="text-sm text-red-500">
+                    Please set VITE_GOOGLE_CLIENT_ID in your .env file to enable Google login.
+                  </p>}
+                  {googleClientId && <GoogleLogin
+                    onSuccess={handleGoogleCredentialResponse}
+                    onError={() => setLoginError("Google login failed, please try again.")}
+                    useOneTap={false}
+                  />}
                 </div>
 
                 {
@@ -486,4 +526,3 @@ function LoginRegister({ onNavigate, onLoginSuccess }) {
 export {
   LoginRegister
 };
-

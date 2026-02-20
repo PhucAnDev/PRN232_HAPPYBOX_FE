@@ -9,10 +9,19 @@ export const authApi = rootApi.injectEndpoints({
         body: credentials
       })
     })
+    ,
+    googleLogin: build.mutation({
+      query: (payload) => ({
+        url: "/Auth/google-login",
+        method: "POST",
+        body: payload
+      })
+    })
   }),
   overrideExisting: false
 });
 
 export const {
-  useLoginMutation
+  useLoginMutation,
+  useGoogleLoginMutation
 } = authApi;

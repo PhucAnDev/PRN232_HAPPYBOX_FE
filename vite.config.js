@@ -53,7 +53,8 @@ var stdin_default = defineConfig({
     outDir: "build"
   },
   server: {
-    port: 3e3,
+    port: 3000,
+    strictPort: true,
     open: true
   }
 });
