@@ -1,38 +1,6 @@
 import api from "./api";
 
-// ====== Request types (khớp với BE) ======
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  fullName: string;
-  email: string;
-  password: string;
-  phoneNumber?: string;
-}
-
-export interface ForgotPasswordRequest {
-  email: string;
-}
-
-export interface ResetPasswordRequest {
-  email: string;
-  otpCode: string;
-  newPassword: string;
-}
-
-export interface GoogleLoginRequest {
-  credential: string;
-}
-
-export interface TokenModel {
-  accessToken: string;
-  refreshToken: string;
-}
-
-// ====== Response types (khớp với BE ApiResponse<T>) ======
+// ====== Response wrapper (khớp với BE ApiResponse<T>) ======
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -40,22 +8,66 @@ export interface ApiResponse<T> {
   errors?: string[];
 }
 
+// ====== User info kèm token (từ BE TokenModel.User) ======
+export interface UserAuthInfo {
+  id: string;
+  email: string;
+  fullName: string;
+  username: string;
+  roleName: string; // "Admin" | "User"
+  isActive: boolean;
+}
+
+// ====== Token response từ login/refresh (BE TokenModel) ======
 export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: UserAuthInfo; // BE trả kèm user info trong login response
+}
+
+// ====== Full profile từ GET /auth/profile (BE UserResponse) ======
+export interface UserProfile {
+  id: string;
+  username: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  roleName: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ====== Request types (khớp với BE) ======
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  username: string; // BE [Required]
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string; // BE: Otp [StringLength(6)]
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface TokenModel {
   accessToken: string;
   refreshToken: string;
 }
 
-export interface UserProfile {
-  id: string;
-  fullName: string;
-  email: string;
-  phoneNumber?: string;
-  role: string;
-}
-
 // ====== Service ======
 const authService = {
-  // POST /api/auth/login
+  // POST /api/auth/login → trả về TokenResponse (có kèm user.roleName)
   login: (data: LoginRequest) =>
     api.post<ApiResponse<TokenResponse>>("/auth/login", data),
 
@@ -65,9 +77,7 @@ const authService = {
 
   // POST /api/auth/google-login
   googleLogin: (credential: string) =>
-    api.post<ApiResponse<TokenResponse>>("/auth/google-login", {
-      credential,
-    }),
+    api.post<ApiResponse<TokenResponse>>("/auth/google-login", { credential }),
 
   // POST /api/auth/forgot-password
   forgotPassword: (email: string) =>

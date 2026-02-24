@@ -3,6 +3,7 @@ import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
+import usePasswordReset from "../hooks/usePasswordReset";
 
 interface ResetPasswordProps {
   onNavigate?: (page: string) => void;
@@ -13,13 +14,19 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const {
+    resetPassword,
+    resetFlow,
+    loading: isLoading,
+    error: apiError,
+  } = usePasswordReset();
 
   // Password strength checker
   const getPasswordStrength = (password: string) => {
     if (!password) return { strength: 0, label: "", color: "" };
-    
+
     let strength = 0;
     if (password.length >= 8) strength++;
     if (password.length >= 12) strength++;
@@ -28,7 +35,8 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
     if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
 
     if (strength <= 2) return { strength, label: "Yếu", color: "bg-red-500" };
-    if (strength <= 3) return { strength, label: "Trung bình", color: "bg-yellow-500" };
+    if (strength <= 3)
+      return { strength, label: "Trung bình", color: "bg-yellow-500" };
     if (strength <= 4) return { strength, label: "Tốt", color: "bg-blue-500" };
     return { strength, label: "Rất mạnh", color: "bg-green-500" };
   };
@@ -45,27 +53,24 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const error = validatePassword();
-    if (error) {
-      alert(error);
+    setLocalError("");
+
+    const validationError = validatePassword();
+    if (validationError) {
+      setLocalError(validationError);
       return;
     }
 
-    setIsLoading(true);
-
-    // Simulate password reset
-    setTimeout(() => {
-      setIsLoading(false);
+    const success = await resetPassword(newPassword, confirmPassword);
+    if (success) {
       setIsSuccess(true);
-      
-      // Redirect to login after 3 seconds
+      resetFlow();
       setTimeout(() => {
         onNavigate?.("login");
       }, 3000);
-    }, 1500);
+    }
   };
 
   return (
@@ -87,9 +92,9 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           {/* Logo */}
           <div>
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-14 w-auto cursor-pointer hover:opacity-80 transition-opacity brightness-0 invert"
               onClick={() => onNavigate?.("home")}
             />
@@ -106,7 +111,8 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
               An Toàn Hơn
             </h2>
             <p className="text-xl text-white/90 leading-relaxed">
-              Tạo mật khẩu mạnh để bảo vệ tài khoản của bạn. Sử dụng kết hợp chữ hoa, chữ thường, số và ký tự đặc biệt.
+              Tạo mật khẩu mạnh để bảo vệ tài khoản của bạn. Sử dụng kết hợp chữ
+              hoa, chữ thường, số và ký tự đặc biệt.
             </p>
             <div className="flex items-center space-x-4 pt-4">
               <div className="h-1 w-16 bg-[#D4AF37] rounded-full"></div>
@@ -127,9 +133,9 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
         <div className="w-full max-w-xl">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-12 w-auto mx-auto cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => onNavigate?.("home")}
             />
@@ -151,7 +157,8 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                     Đặt Lại Mật Khẩu
                   </h2>
                   <p className="text-gray-600 leading-relaxed text-lg">
-                    Tạo mật khẩu mới cho tài khoản của bạn. Hãy đảm bảo mật khẩu đủ mạnh để bảo vệ tài khoản.
+                    Tạo mật khẩu mới cho tài khoản của bạn. Hãy đảm bảo mật khẩu
+                    đủ mạnh để bảo vệ tài khoản.
                   </p>
                 </div>
 
@@ -190,13 +197,20 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                     {newPassword && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Độ mạnh mật khẩu:</span>
-                          <span className={`text-sm font-bold ${
-                            passwordStrength.strength <= 2 ? 'text-red-600' :
-                            passwordStrength.strength <= 3 ? 'text-yellow-600' :
-                            passwordStrength.strength <= 4 ? 'text-blue-600' :
-                            'text-green-600'
-                          }`}>
+                          <span className="text-sm text-gray-600">
+                            Độ mạnh mật khẩu:
+                          </span>
+                          <span
+                            className={`text-sm font-bold ${
+                              passwordStrength.strength <= 2
+                                ? "text-red-600"
+                                : passwordStrength.strength <= 3
+                                  ? "text-yellow-600"
+                                  : passwordStrength.strength <= 4
+                                    ? "text-blue-600"
+                                    : "text-green-600"
+                            }`}
+                          >
                             {passwordStrength.label}
                           </span>
                         </div>
@@ -207,7 +221,7 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                               className={`h-2 flex-1 rounded-full transition-all ${
                                 level <= passwordStrength.strength
                                   ? passwordStrength.color
-                                  : 'bg-gray-200'
+                                  : "bg-gray-200"
                               }`}
                             />
                           ))}
@@ -233,7 +247,9 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
                         {showConfirmPassword ? (
@@ -281,7 +297,8 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                         Ít nhất 8 ký tự
                       </li>
                       <li className="flex items-center gap-2">
-                        {/[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) ? (
+                        {/[a-z]/.test(newPassword) &&
+                        /[A-Z]/.test(newPassword) ? (
                           <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                         ) : (
                           <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
@@ -306,6 +323,15 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                       </li>
                     </ul>
                   </div>
+
+                  {/* Error Messages */}
+                  {(localError || apiError) && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                      <p className="text-sm text-red-700">
+                        {localError || apiError}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Submit Button */}
                   <Button
@@ -342,14 +368,16 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
                 <div className="bg-[#FFFDF5] border-2 border-[#D4AF37] rounded-xl p-6 mb-8">
                   <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
                   <p className="text-sm text-gray-600">
-                    Bạn có thể sử dụng mật khẩu mới để đăng nhập vào tài khoản của mình.
+                    Bạn có thể sử dụng mật khẩu mới để đăng nhập vào tài khoản
+                    của mình.
                   </p>
                 </div>
-                
+
                 {/* Countdown */}
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 mb-6">
                   <p className="text-sm text-gray-600">
-                    Đang chuyển đến trang đăng nhập sau <span className="font-bold text-[#B71C1C]">3 giây</span>...
+                    Đang chuyển đến trang đăng nhập sau{" "}
+                    <span className="font-bold text-[#B71C1C]">3 giây</span>...
                   </p>
                 </div>
 

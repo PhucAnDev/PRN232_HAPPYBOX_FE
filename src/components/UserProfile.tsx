@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Edit3,
@@ -7,9 +7,14 @@ import {
   Lock,
   LogOut,
   Upload,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "../store/store";
+import { getProfileThunk } from "../store/slices/authSlice";
+import useAuth from "../hooks/useAuth";
 
 interface UserProfileProps {
   onNavigate?: (page: string) => void;
@@ -17,24 +22,55 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
+  const dispatch = useDispatch<AppDispatch>();
+  const { user, logout } = useAuth();
+  const { profile, loading } = useSelector((state: RootState) => state.auth);
+
   const [activeSection, setActiveSection] = useState("account");
-  const [fullName, setFullName] = useState("Nguyễn Văn An");
-  const [email, setEmail] = useState("an.nguyen@email.com");
-  const [phone, setPhone] = useState("0909 123 456");
-  const [gender, setGender] = useState("Nam");
-  const [day, setDay] = useState("15");
-  const [month, setMonth] = useState("03");
-  const [year, setYear] = useState("1990");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  // Fetch profile data when component mounts
+  useEffect(() => {
+    dispatch(getProfileThunk());
+  }, [dispatch]);
+
+  // Update form when profile data is loaded
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.fullName || "");
+      setEmail(profile.email || "");
+      setPhone(profile.phone || "");
+      setAddress(profile.address || "");
+    }
+  }, [profile]);
 
   const handleSaveChanges = () => {
-    // Save changes logic
-    alert("Thông tin đã được cập nhật thành công!");
+    // TODO: Implement update profile API when BE is ready
+    alert(
+      "Tính năng cập nhật thông tin đang được phát triển. Vui lòng liên hệ admin để thay đổi thông tin.",
+    );
   };
 
   const handleLogout = () => {
+    logout();
     onLogout?.();
     onNavigate?.("home");
   };
+
+  // Show loading state
+  if (loading && !profile) {
+    return (
+      <div className="min-h-screen bg-[#F9F9F9] py-12 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-[#B71C1C] animate-spin" />
+          <p className="text-gray-600 font-medium">Đang tải thông tin...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] py-12">
@@ -59,7 +95,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                     Xin chào,
                   </h3>
                   <p className="text-base font-semibold text-gray-800 mb-2">
-                    Nguyễn Văn An
+                    {profile?.fullName || user?.fullName || "Người dùng"}
                   </p>
 
                   {/* Edit Link */}
@@ -167,7 +203,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                     </label>
                     <Input
                       type="text"
-                      value="nguyenvanan"
+                      value={profile?.username || ""}
                       disabled
                       className="bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200"
                     />
@@ -183,6 +219,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="border-gray-300 focus:border-[#B71C1C] focus:ring-[#B71C1C]"
+                      placeholder="Nhập họ và tên"
                     />
                   </div>
 
@@ -196,6 +233,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="border-gray-300 focus:border-[#B71C1C] focus:ring-[#B71C1C]"
+                      placeholder="example@email.com"
                     />
                   </div>
 
@@ -209,106 +247,22 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="border-gray-300 focus:border-[#B71C1C] focus:ring-[#B71C1C]"
+                      placeholder="0909 123 456"
                     />
                   </div>
 
-                  {/* Gender */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Giới tính
-                    </label>
-                    <div className="flex gap-6">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="gender"
-                          value="Nam"
-                          checked={gender === "Nam"}
-                          onChange={(e) => setGender(e.target.value)}
-                          className="w-4 h-4 text-[#B71C1C] focus:ring-[#B71C1C]"
-                        />
-                        <span className="text-gray-700">Nam</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="gender"
-                          value="Nữ"
-                          checked={gender === "Nữ"}
-                          onChange={(e) => setGender(e.target.value)}
-                          className="w-4 h-4 text-[#B71C1C] focus:ring-[#B71C1C]"
-                        />
-                        <span className="text-gray-700">Nữ</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="gender"
-                          value="Khác"
-                          checked={gender === "Khác"}
-                          onChange={(e) => setGender(e.target.value)}
-                          className="w-4 h-4 text-[#B71C1C] focus:ring-[#B71C1C]"
-                        />
-                        <span className="text-gray-700">Khác</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Date of Birth */}
+                  {/* Address */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Ngày sinh
+                      Địa chỉ
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {/* Day */}
-                      <select
-                        value={day}
-                        onChange={(e) => setDay(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B71C1C] focus:border-transparent"
-                      >
-                        <option value="">Ngày</option>
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map(
-                          (d) => (
-                            <option key={d} value={d.toString().padStart(2, "0")}>
-                              {d}
-                            </option>
-                          )
-                        )}
-                      </select>
-
-                      {/* Month */}
-                      <select
-                        value={month}
-                        onChange={(e) => setMonth(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B71C1C] focus:border-transparent"
-                      >
-                        <option value="">Tháng</option>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(
-                          (m) => (
-                            <option key={m} value={m.toString().padStart(2, "0")}>
-                              Tháng {m}
-                            </option>
-                          )
-                        )}
-                      </select>
-
-                      {/* Year */}
-                      <select
-                        value={year}
-                        onChange={(e) => setYear(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B71C1C] focus:border-transparent"
-                      >
-                        <option value="">Năm</option>
-                        {Array.from(
-                          { length: 80 },
-                          (_, i) => new Date().getFullYear() - i
-                        ).map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <Input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="border-gray-300 focus:border-[#B71C1C] focus:ring-[#B71C1C]"
+                      placeholder="123 Đường ABC, Quận XYZ, TP.HCM"
+                    />
                   </div>
                 </div>
 

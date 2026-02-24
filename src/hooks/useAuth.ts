@@ -2,6 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../store/store";
 import {
   loginThunk,
+  googleLoginThunk,
   registerThunk,
   logoutThunk,
   getProfileThunk,
@@ -17,15 +18,11 @@ const useAuth = () => {
     (state: RootState) => state.auth,
   );
 
-  // Đăng nhập → trả về role để navigate
+  // Đăng nhập → user.roleName đã có trong response, không cần gọi /profile
   const login = async (credentials: LoginRequest) => {
     const result = await dispatch(loginThunk(credentials));
     if (loginThunk.fulfilled.match(result)) {
-      // Lấy profile sau khi login để biết role
-      const profileResult = await dispatch(getProfileThunk());
-      if (getProfileThunk.fulfilled.match(profileResult)) {
-        return profileResult.payload.role; // trả về role: "Admin" | "User"
-      }
+      return result.payload.user.roleName; // "Admin" | "User"
     }
     return null;
   };
@@ -35,22 +32,29 @@ const useAuth = () => {
     return registerThunk.fulfilled.match(result);
   };
 
+  const googleLogin = async (credential: string) => {
+    const result = await dispatch(googleLoginThunk(credential));
+    if (googleLoginThunk.fulfilled.match(result)) {
+      return result.payload.user.roleName; // "Admin" | "Customer"
+    }
+    return null;
+  };
+
   const logout = async () => {
     await dispatch(logoutThunk());
   };
 
-  const fetchProfile = () => dispatch(getProfileThunk());
-
   return {
     user,
     isLoggedIn: !!accessToken,
-    isAdmin: user?.role === "Admin",
+    isAdmin: user?.roleName === "Admin",
     loading,
     error,
     login,
+    googleLogin,
     register,
     logout,
-    fetchProfile,
+    fetchProfile: () => dispatch(getProfileThunk()),
     clearError: () => dispatch(clearError()),
   };
 };

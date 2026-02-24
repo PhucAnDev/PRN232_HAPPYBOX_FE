@@ -3,6 +3,7 @@ import { Mail, ArrowLeft, Send, CheckCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
+import usePasswordReset from "../hooks/usePasswordReset";
 
 interface ForgotPasswordProps {
   onNavigate?: (page: string) => void;
@@ -11,22 +12,17 @@ interface ForgotPasswordProps {
 export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { forgotPassword, loading: isLoading, error } = usePasswordReset();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate sending OTP
-    setTimeout(() => {
-      setIsLoading(false);
+    const success = await forgotPassword(email);
+    if (success) {
       setIsSubmitted(true);
-      
-      // Auto redirect to verify OTP page after 3 seconds
       setTimeout(() => {
         onNavigate?.("verify-otp");
       }, 3000);
-    }, 1500);
+    }
   };
 
   return (
@@ -48,9 +44,9 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           {/* Logo */}
           <div>
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-14 w-auto cursor-pointer hover:opacity-80 transition-opacity brightness-0 invert"
               onClick={() => onNavigate?.("home")}
             />
@@ -67,7 +63,8 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
               Chúng Tôi Hỗ Trợ Bạn
             </h2>
             <p className="text-xl text-white/90 leading-relaxed">
-              Chỉ cần nhập email của bạn, chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu ngay lập tức.
+              Chỉ cần nhập email của bạn, chúng tôi sẽ gửi mã OTP để đặt lại mật
+              khẩu ngay lập tức.
             </p>
             <div className="flex items-center space-x-4 pt-4">
               <div className="h-1 w-16 bg-[#D4AF37] rounded-full"></div>
@@ -88,9 +85,9 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
         <div className="w-full max-w-xl">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-12 w-auto mx-auto cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => onNavigate?.("home")}
             />
@@ -121,7 +118,8 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                     Quên Mật Khẩu?
                   </h2>
                   <p className="text-gray-600 leading-relaxed text-lg">
-                    Nhập địa chỉ email đã đăng ký của bạn, chúng tôi sẽ gửi mã OTP để bạn có thể đặt lại mật khẩu.
+                    Nhập địa chỉ email đã đăng ký của bạn, chúng tôi sẽ gửi mã
+                    OTP để bạn có thể đặt lại mật khẩu.
                   </p>
                 </div>
 
@@ -144,6 +142,13 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                       />
                     </div>
                   </div>
+
+                  {/* Error Message */}
+                  {error && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                      <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                  )}
 
                   {/* Submit Button */}
                   <Button
@@ -168,13 +173,24 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                   <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
                     <div className="flex items-start">
                       <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-blue-400 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        <svg
+                          className="h-5 w-5 text-blue-400 mt-0.5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </div>
                       <div className="ml-3">
                         <p className="text-sm text-blue-700 leading-relaxed">
-                          Mã OTP sẽ được gửi đến email của bạn và có hiệu lực trong <span className="font-bold">10 phút</span>. Vui lòng kiểm tra cả thư mục spam.
+                          Mã OTP sẽ được gửi đến email của bạn và có hiệu lực
+                          trong <span className="font-bold">10 phút</span>. Vui
+                          lòng kiểm tra cả thư mục spam.
                         </p>
                       </div>
                     </div>
@@ -200,19 +216,21 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
                   <p className="font-bold text-[#B71C1C] text-lg">{email}</p>
                 </div>
                 <p className="text-sm text-gray-500 mb-8">
-                  Vui lòng kiểm tra hộp thư đến và làm theo hướng dẫn để đặt lại mật khẩu.
+                  Vui lòng kiểm tra hộp thư đến và làm theo hướng dẫn để đặt lại
+                  mật khẩu.
                 </p>
-                
+
                 {/* Countdown and redirect info */}
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                   <p className="text-sm text-gray-600">
-                    Bạn sẽ được chuyển đến trang nhập mã OTP sau <span className="font-bold text-[#B71C1C]">3 giây</span>...
+                    Bạn sẽ được chuyển đến trang nhập mã OTP sau{" "}
+                    <span className="font-bold text-[#B71C1C]">3 giây</span>...
                   </p>
                 </div>
 
                 {/* Resend Link */}
                 <div className="mt-6">
-                  <button 
+                  <button
                     onClick={() => setIsSubmitted(false)}
                     className="text-sm text-[#B71C1C] hover:text-[#8B1538] font-medium hover:underline"
                   >
@@ -227,7 +245,10 @@ export function ForgotPassword({ onNavigate }: ForgotPasswordProps) {
           <div className="text-center mt-8">
             <p className="text-sm text-gray-600">
               Cần hỗ trợ?{" "}
-              <a href="#" className="text-[#B71C1C] hover:text-[#8B1538] font-medium hover:underline">
+              <a
+                href="#"
+                className="text-[#B71C1C] hover:text-[#8B1538] font-medium hover:underline"
+              >
                 Liên hệ hỗ trợ khách hàng
               </a>
             </p>

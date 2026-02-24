@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, User, Phone, Chrome } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
+import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
@@ -14,7 +15,8 @@ export function LoginRegister({
   onNavigate,
   onLoginSuccess,
 }: LoginRegisterProps) {
-  const { login, register, loading, error, clearError } = useAuth();
+  const { login, googleLogin, register, loading, error, clearError } =
+    useAuth();
 
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,8 +27,11 @@ export function LoginRegister({
   const [loginPassword, setLoginPassword] = useState("");
 
   // Register form state
+  const [registerUsername, setRegisterUsername] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPhone, setRegisterPhone] = useState("");
+  const [registerAddress, setRegisterAddress] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [registerSuccess, setRegisterSuccess] = useState("");
@@ -48,18 +53,66 @@ export function LoginRegister({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setRegisterSuccess("");
+
+    // Validate password match
     if (registerPassword !== registerConfirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!");
       return;
     }
+
+    // Validate password strength
+    if (registerPassword.length < 8) {
+      return;
+    }
+
     const success = await register({
+      username: registerUsername,
       fullName: registerName,
       email: registerEmail,
+      phone: registerPhone || undefined,
+      address: registerAddress || undefined,
       password: registerPassword,
     });
     if (success) {
       setRegisterSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
-      setActiveTab("login");
+      // Reset form
+      setRegisterUsername("");
+      setRegisterName("");
+      setRegisterEmail("");
+      setRegisterPhone("");
+      setRegisterAddress("");
+      setRegisterPassword("");
+      setRegisterConfirmPassword("");
+      // Switch to login tab after 2 seconds
+      setTimeout(() => {
+        setActiveTab("login");
+        setRegisterSuccess("");
+      }, 2000);
+    }
+  };
+
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    clearError();
+    if (!credentialResponse.credential) {
+      console.error("No credential received from Google");
+      return;
+    }
+
+    console.log(
+      "Google credential received:",
+      credentialResponse.credential?.substring(0, 50) + "...",
+    );
+
+    const role = await googleLogin(credentialResponse.credential);
+    if (role) {
+      onLoginSuccess?.();
+      if (role === "Admin") {
+        onNavigate?.("admin");
+      } else {
+        onNavigate?.("home");
+      }
+    } else {
+      console.error("Google login failed - check backend logs");
     }
   };
 
@@ -256,16 +309,19 @@ export function LoginRegister({
                   </div>
                 </div>
 
-                {/* Social Login */}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 border-2 border-gray-300 hover:border-[#B71C1C] hover:bg-gray-50"
-                  >
-                    <Chrome className="h-5 w-5 mr-2" />
-                    Google
-                  </Button>
+                {/* Social Login - Google */}
+                <div className="flex justify-center">
+                  <GoogleLogin
+                    onSuccess={handleGoogleLogin}
+                    onError={() => {
+                      console.error("Google Login Failed");
+                    }}
+                    useOneTap
+                    theme="outline"
+                    size="large"
+                    text="signin_with"
+                    width="100%"
+                  />
                 </div>
 
                 {/* Register Link */}
@@ -300,7 +356,7 @@ export function LoginRegister({
                 {/* Full Name Input */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Họ và tên
+                    Họ và tên <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -310,6 +366,26 @@ export function LoginRegister({
                       onChange={(e) => setRegisterName(e.target.value)}
                       placeholder="Nguyễn Văn A"
                       className="pl-11 py-6 border-gray-300 rounded-lg focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                      maxLength={100}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Username Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Tên đăng nhập <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="text"
+                      value={registerUsername}
+                      onChange={(e) => setRegisterUsername(e.target.value)}
+                      placeholder="nguyen_van_a"
+                      className="pl-11 py-6 border-gray-300 rounded-lg focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                      maxLength={100}
                       required
                     />
                   </div>
@@ -318,17 +394,54 @@ export function LoginRegister({
                 {/* Email/Phone Input */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Email hoặc Số điện thoại
+                    Email <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <Input
-                      type="text"
+                      type="email"
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
-                      placeholder="example@email.com hoặc 0912345678"
+                      placeholder="example@email.com"
                       className="pl-11 py-6 border-gray-300 rounded-lg focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                      maxLength={100}
                       required
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Số điện thoại
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="tel"
+                      value={registerPhone}
+                      onChange={(e) => setRegisterPhone(e.target.value)}
+                      placeholder="0912345678"
+                      className="pl-11 py-6 border-gray-300 rounded-lg focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                      maxLength={20}
+                      pattern="[0-9]{10,11}"
+                    />
+                  </div>
+                </div>
+
+                {/* Address Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Địa chỉ
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={registerAddress}
+                      onChange={(e) => setRegisterAddress(e.target.value)}
+                      placeholder="123 Đường ABC, Quận XYZ, TP.HCM"
+                      className="py-6 border-gray-300 rounded-lg focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                      maxLength={250}
                     />
                   </div>
                 </div>
@@ -336,7 +449,7 @@ export function LoginRegister({
                 {/* Password Input */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Mật khẩu
+                    Mật khẩu <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -361,12 +474,17 @@ export function LoginRegister({
                       )}
                     </button>
                   </div>
+                  {registerPassword && registerPassword.length < 8 && (
+                    <p className="text-xs text-red-500">
+                      Mật khẩu phải có ít nhất 8 ký tự
+                    </p>
+                  )}
                 </div>
 
                 {/* Confirm Password Input */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Xác nhận mật khẩu
+                    Xác nhận mật khẩu <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -394,6 +512,12 @@ export function LoginRegister({
                       )}
                     </button>
                   </div>
+                  {registerConfirmPassword &&
+                    registerPassword !== registerConfirmPassword && (
+                      <p className="text-xs text-red-500">
+                        Mật khẩu xác nhận không khớp
+                      </p>
+                    )}
                 </div>
 
                 {/* Terms & Conditions */}
@@ -421,6 +545,13 @@ export function LoginRegister({
                     </a>
                   </label>
                 </div>
+
+                {/* Success message */}
+                {registerSuccess && (
+                  <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-lg text-sm font-medium">
+                    ✓ {registerSuccess}
+                  </div>
+                )}
 
                 {/* Error message */}
                 {error && (
@@ -450,16 +581,19 @@ export function LoginRegister({
                   </div>
                 </div>
 
-                {/* Social Register */}
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 border-2 border-gray-300 hover:border-[#B71C1C] hover:bg-gray-50"
-                  >
-                    <Chrome className="h-5 w-5 mr-2" />
-                    Google
-                  </Button>
+                {/* Social Register - Google */}
+                <div className="flex justify-center">
+                  <GoogleLogin
+                    onSuccess={handleGoogleLogin}
+                    onError={() => {
+                      console.error("Google Login Failed");
+                    }}
+                    useOneTap
+                    theme="outline"
+                    size="large"
+                    text="signup_with"
+                    width="100%"
+                  />
                 </div>
 
                 {/* Login Link */}

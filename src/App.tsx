@@ -22,12 +22,14 @@ import { ChangePassword } from "./components/ChangePassword";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { VerifyOTP } from "./components/VerifyOTP";
 import { ResetPassword } from "./components/ResetPassword";
+import useAuth from "./hooks/useAuth";
+import useCart from "./hooks/useCart";
 
 export default function App() {
-  const [cartCount, setCartCount] = useState(4);
-  const [currentPage, setCurrentPage] = useState("home"); // "home", "product", "listing", "individual-products", "custom-builder", "login", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password"
+  const { isLoggedIn, logout } = useAuth();
+  const { totalItems } = useCart();
+  const [currentPage, setCurrentPage] = useState("home");
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Load Google Fonts
   useEffect(() => {
@@ -38,9 +40,7 @@ export default function App() {
     document.head.appendChild(link);
   }, []);
 
-  const handleAddToCart = () => {
-    setCartCount((prev) => prev + 1);
-  };
+  const handleAddToCart = () => {};
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
@@ -54,10 +54,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <LoginRegister
-          onNavigate={handleNavigate}
-          onLoginSuccess={() => setIsLoggedIn(true)}
-        />
+        <LoginRegister onNavigate={handleNavigate} onLoginSuccess={() => {}} />
       </div>
     );
   }
@@ -69,7 +66,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -92,7 +89,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -115,7 +112,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -138,7 +135,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -161,7 +158,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -184,7 +181,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
@@ -217,7 +214,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <CheckoutPage onNavigate={handleNavigate} cartCount={cartCount} />
+        <CheckoutPage onNavigate={handleNavigate} cartCount={totalItems} />
       </div>
     );
   }
@@ -229,15 +226,12 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
         />
-        <UserProfile 
-          onNavigate={handleNavigate}
-          onLogout={() => setIsLoggedIn(false)}
-        />
+        <UserProfile onNavigate={handleNavigate} onLogout={logout} />
         <Footer />
         <MiniCartSidebar
           isOpen={isCartOpen}
@@ -255,15 +249,12 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
         />
-        <OrderHistory 
-          onNavigate={handleNavigate}
-          onLogout={() => setIsLoggedIn(false)}
-        />
+        <OrderHistory onNavigate={handleNavigate} onLogout={logout} />
         <Footer />
         <MiniCartSidebar
           isOpen={isCartOpen}
@@ -281,15 +272,12 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <Header
-          cartCount={cartCount}
+          cartCount={totalItems}
           onNavigate={handleNavigate}
           onCartClick={() => setIsCartOpen(true)}
           isLoggedIn={isLoggedIn}
         />
-        <ChangePassword 
-          onNavigate={handleNavigate}
-          onLogout={() => setIsLoggedIn(false)}
-        />
+        <ChangePassword onNavigate={handleNavigate} onLogout={logout} />
         <Footer />
         <MiniCartSidebar
           isOpen={isCartOpen}
@@ -306,9 +294,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <ForgotPassword
-          onNavigate={handleNavigate}
-        />
+        <ForgotPassword onNavigate={handleNavigate} />
       </div>
     );
   }
@@ -319,9 +305,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <VerifyOTP
-          onNavigate={handleNavigate}
-        />
+        <VerifyOTP onNavigate={handleNavigate} />
       </div>
     );
   }
@@ -332,9 +316,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <ResetPassword
-          onNavigate={handleNavigate}
-        />
+        <ResetPassword onNavigate={handleNavigate} />
       </div>
     );
   }
@@ -345,7 +327,7 @@ export default function App() {
       style={{ fontFamily: "'Montserrat', sans-serif" }}
     >
       <Header
-        cartCount={cartCount}
+        cartCount={totalItems}
         onNavigate={handleNavigate}
         onCartClick={() => setIsCartOpen(true)}
         isLoggedIn={isLoggedIn}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Shield, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
+import usePasswordReset from "../hooks/usePasswordReset";
 
 interface VerifyOTPProps {
   onNavigate?: (page: string) => void;
@@ -11,9 +12,10 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [timer, setTimer] = useState(600); // 10 minutes in seconds
+  const [timer, setTimer] = useState(300); // 5 minutes (matches BE Redis TTL)
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { forgotEmail, forgotPassword, setOtp: storeOtp } = usePasswordReset();
 
   // Timer countdown
   useEffect(() => {
@@ -51,7 +53,10 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -75,7 +80,7 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const otpValue = otp.join("");
     if (otpValue.length !== 6) {
       setError("Vui lòng nhập đầy đủ 6 số");
@@ -85,32 +90,24 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
     setIsLoading(true);
     setError("");
 
-    // Simulate verification
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // For demo: accept 123456 as correct OTP
-      if (otpValue === "123456") {
-        onNavigate?.("reset-password");
-      } else {
-        setError("Mã OTP không đúng. Vui lòng thử lại.");
-        setOtp(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
-      }
-    }, 1500);
+    // Store OTP in Redux and proceed to reset password page
+    // Actual OTP validation happens at the reset-password step via BE API
+    storeOtp(otpValue);
+    setIsLoading(false);
+    onNavigate?.("reset-password");
   };
 
-  const handleResend = () => {
-    if (!canResend) return;
-    
-    setOtp(["", "", "", "", "", ""]);
-    setError("");
-    setTimer(600);
-    setCanResend(false);
-    inputRefs.current[0]?.focus();
-    
-    // Show success message (in real app, actually resend OTP)
-    alert("Mã OTP mới đã được gửi đến email của bạn!");
+  const handleResend = async () => {
+    if (!canResend || !forgotEmail) return;
+
+    const success = await forgotPassword(forgotEmail);
+    if (success) {
+      setOtp(["", "", "", "", "", ""]);
+      setError("");
+      setTimer(300);
+      setCanResend(false);
+      inputRefs.current[0]?.focus();
+    }
   };
 
   return (
@@ -132,9 +129,9 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           {/* Logo */}
           <div>
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-14 w-auto cursor-pointer hover:opacity-80 transition-opacity brightness-0 invert"
               onClick={() => onNavigate?.("home")}
             />
@@ -151,7 +148,8 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
               Bảo Mật
             </h2>
             <p className="text-xl text-white/90 leading-relaxed">
-              Chúng tôi đã gửi mã OTP 6 số đến email của bạn. Vui lòng kiểm tra và nhập mã để tiếp tục.
+              Chúng tôi đã gửi mã OTP 6 số đến email của bạn. Vui lòng kiểm tra
+              và nhập mã để tiếp tục.
             </p>
             <div className="flex items-center space-x-4 pt-4">
               <div className="h-1 w-16 bg-[#D4AF37] rounded-full"></div>
@@ -172,9 +170,9 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
         <div className="w-full max-w-xl">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <img 
-              src={logoImage} 
-              alt="Tetdenroi.vn" 
+            <img
+              src={logoImage}
+              alt="Tetdenroi.vn"
               className="h-12 w-auto mx-auto cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => onNavigate?.("home")}
             />
@@ -205,7 +203,9 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
               <p className="text-gray-600 leading-relaxed">
                 Chúng tôi đã gửi mã xác thực 6 số đến
               </p>
-              <p className="font-bold text-[#B71C1C] mt-1">example@email.com</p>
+              <p className="font-bold text-[#B71C1C] mt-1">
+                {forgotEmail || "email của bạn"}
+              </p>
             </div>
 
             {/* Form */}
@@ -246,7 +246,9 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
                   {timer > 0 ? (
                     <p className="text-sm text-gray-600">
                       Mã có hiệu lực trong{" "}
-                      <span className="font-bold text-[#B71C1C]">{formatTime(timer)}</span>
+                      <span className="font-bold text-[#B71C1C]">
+                        {formatTime(timer)}
+                      </span>
                     </p>
                   ) : (
                     <p className="text-sm text-red-600 font-medium">
@@ -293,29 +295,24 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
               <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-blue-400 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    <svg
+                      className="h-5 w-5 text-blue-400 mt-0.5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-blue-700 leading-relaxed">
-                      <span className="font-bold">Mẹo:</span> Không nhận được email? Vui lòng kiểm tra thư mục spam hoặc chờ vài phút trước khi gửi lại.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Demo Hint */}
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-yellow-400 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-700 leading-relaxed">
-                      <span className="font-bold">Demo:</span> Nhập mã <span className="font-mono font-bold">123456</span> để xác thực thành công.
+                      <span className="font-bold">Mẹo:</span> Không nhận được
+                      email? Vui lòng kiểm tra thư mục spam hoặc chờ vài phút
+                      trước khi gửi lại.
                     </p>
                   </div>
                 </div>
@@ -327,7 +324,10 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
           <div className="text-center mt-8">
             <p className="text-sm text-gray-600">
               Gặp vấn đề?{" "}
-              <a href="#" className="text-[#B71C1C] hover:text-[#8B1538] font-medium hover:underline">
+              <a
+                href="#"
+                className="text-[#B71C1C] hover:text-[#8B1538] font-medium hover:underline"
+              >
                 Liên hệ hỗ trợ
               </a>
             </p>
