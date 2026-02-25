@@ -21,7 +21,9 @@ interface AuthState {
 }
 
 const initialState: AuthState = {
-  user: null,
+  user: localStorage.getItem("user")
+    ? JSON.parse(localStorage.getItem("user")!)
+    : null,
   profile: null,
   accessToken: localStorage.getItem("accessToken"),
   refreshToken: localStorage.getItem("refreshToken"),
@@ -41,6 +43,7 @@ export const loginThunk = createAsyncThunk(
       const { accessToken, refreshToken, user } = res.data.data;
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("user", JSON.stringify(user));
       return { accessToken, refreshToken, user }; // user có kèm roleName
     } catch (err: any) {
       return rejectWithValue(
@@ -100,6 +103,8 @@ export const getProfileThunk = createAsyncThunk(
 export const logoutThunk = createAsyncThunk("auth/logout", async () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+  localStorage.removeItem("currentPage");
 });
 
 export const forgotPasswordThunk = createAsyncThunk(

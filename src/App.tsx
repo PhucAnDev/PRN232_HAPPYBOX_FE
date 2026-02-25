@@ -26,9 +26,16 @@ import useAuth from "./hooks/useAuth";
 import useCart from "./hooks/useCart";
 
 export default function App() {
-  const { isLoggedIn, logout } = useAuth();
+  const { isLoggedIn, logout, user } = useAuth();
   const { totalItems } = useCart();
-  const [currentPage, setCurrentPage] = useState("home");
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem("currentPage");
+    // If admin page but not admin user, redirect to home
+    if (saved === "admin" && user?.roleName !== "Admin") {
+      return "home";
+    }
+    return saved || "home";
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Load Google Fonts
@@ -40,10 +47,18 @@ export default function App() {
     document.head.appendChild(link);
   }, []);
 
+  // Protect admin page - redirect if not admin
+  useEffect(() => {
+    if (currentPage === "admin" && user && user.roleName !== "Admin") {
+      handleNavigate("home");
+    }
+  }, [currentPage, user]);
+
   const handleAddToCart = () => {};
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
+    localStorage.setItem("currentPage", page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 

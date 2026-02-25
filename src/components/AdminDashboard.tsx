@@ -1,10 +1,11 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { OrderManagement } from "./OrderManagement";
 import { ProductManagement } from "./ProductManagement";
 import { CustomerManagement } from "./CustomerManagement";
 import { AdminSettings } from "./AdminSettings";
 import { CustomerManagementSplit } from "./CustomerManagementSplit";
 import { RevenueReport } from "./RevenueReport";
+import { VoucherManagement } from "./VoucherManagement";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
@@ -22,6 +23,7 @@ import {
   TrendingUp,
   LogOut,
   AlertTriangle,
+  Tag,
 } from "lucide-react";
 import {
   LineChart,
@@ -134,6 +136,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     { id: "products", label: "Sản Phẩm", icon: Package },
     { id: "orders", label: "Đơn Hàng", icon: ShoppingCart },
     { id: "customers", label: "Khách Hàng", icon: Users },
+    { id: "vouchers", label: "Mã Giảm Giá", icon: Tag },
     { id: "reports", label: "Báo Cáo", icon: BarChart3 },
     { id: "settings", label: "Cài Đặt", icon: Settings },
   ];
@@ -200,6 +203,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <ProductManagement />
         ) : activeMenu === "customers" ? (
           <CustomerManagementSplit />
+        ) : activeMenu === "vouchers" ? (
+          <VoucherManagement />
         ) : activeMenu === "reports" ? (
           <RevenueReport />
         ) : activeMenu === "settings" ? (
@@ -511,3 +516,6 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     </div>
   );
 }
+
+
+
