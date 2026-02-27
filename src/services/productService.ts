@@ -1,4 +1,5 @@
 import api from "./api";
+import type { ImageResponse } from "./imageService";
 
 // ====== Types (khớp với BE) ======
 export interface ProductResponse {
@@ -12,6 +13,7 @@ export interface ProductResponse {
   categoryName?: string;
   createdAt: string;
   updatedAt?: string;
+  images?: ImageResponse[]; // Extended - populated from /api/images/products/:id
 }
 
 export interface CreateProductRequest {
@@ -23,11 +25,12 @@ export interface CreateProductRequest {
 }
 
 export interface UpdateProductRequest {
-  name?: string;
-  description?: string;
-  price?: number;
+  sku: string;
+  name: string;
+  description: string;
+  price: number;
   isActive?: boolean;
-  categoryId?: string;
+  categoryId: string;
 }
 
 export interface ApiResponse<T> {

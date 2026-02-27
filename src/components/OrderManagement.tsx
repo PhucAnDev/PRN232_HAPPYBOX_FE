@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Filter,
@@ -15,12 +15,22 @@ import {
   StickyNote,
   CreditCard,
   Truck,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import orderService, {
+  OrderResponse,
+  OrderStatus,
+  orderStatusLabels,
+  orderStatusColors,
+} from "../services/orderService";
+import userService, { UserResponse } from "../services/userService";
+import productService from "../services/productService";
 
 interface Order {
   id: string;
+  backendId?: string; // Backend GUID for API calls
   customer: {
     name: string;
     avatar: string;
@@ -55,255 +65,126 @@ export function OrderManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [newStatus, setNewStatus] = useState<Order["orderStatus"]>("pending");
+  
+  // API data states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data with full order details
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: "ORD-2025-001",
-      customer: {
-        name: "Nguyễn Văn An",
-        avatar: "NVA",
-        email: "an.nguyen@email.com",
-        phone: "0909 123 456",
-        address: "123 Đường Lê Lợi, Quận 1, TP.HCM",
-      },
-      date: "15/01/2026",
-      amount: 4550000,
-      paymentStatus: "paid",
-      orderStatus: "pending",
-      items: [
-        {
-          id: "1",
-          name: "Hộp Quà Phú Quý",
-          image: "🎁",
-          quantity: 2,
-          price: 1500000,
-        },
-        {
-          id: "2",
-          name: "Vang Đỏ Chile Premium",
-          image: "🍷",
-          quantity: 1,
-          price: 1500000,
-        },
-      ],
-      subtotal: 4500000,
-      shippingFee: 50000,
-      discount: 0,
-      paymentMethod: "MoMo",
-      note: "Giao hàng trong giờ hành chính, gói quà cẩn thận.",
-    },
-    {
-      id: "ORD-2025-002",
-      customer: {
-        name: "Trần Thị Bình",
-        avatar: "TTB",
-        email: "binh.tran@company.vn",
-        phone: "0912 345 678",
-        address: "456 Nguyễn Huệ, Quận 1, TP.HCM",
-      },
-      date: "15/01/2026",
-      amount: 8900000,
-      paymentStatus: "paid",
-      orderStatus: "shipping",
-      items: [
-        {
-          id: "1",
-          name: "Hamper Tết Sang Trọng",
-          image: "🎁",
-          quantity: 3,
-          price: 2800000,
-        },
-        {
-          id: "2",
-          name: "Trà Cao Cấp Premium",
-          image: "🍵",
-          quantity: 1,
-          price: 500000,
-        },
-      ],
-      subtotal: 8800000,
-      shippingFee: 100000,
-      discount: 0,
-      paymentMethod: "VNPay",
-    },
-    {
-      id: "ORD-2025-003",
-      customer: {
-        name: "Công ty TNHH ABC",
-        avatar: "ABC",
-        email: "abc@company.vn",
-        phone: "0987 654 321",
-        address: "789 Đường Võ Văn Tần, Quận 2, TP.HCM",
-      },
-      date: "14/01/2026",
-      amount: 25000000,
-      paymentStatus: "paid",
-      orderStatus: "completed",
-      items: [
-        {
-          id: "1",
-          name: "Bộ Sưu Tập Nghệ Thuật",
-          image: "🖼️",
-          quantity: 1,
-          price: 25000000,
-        },
-      ],
-      subtotal: 25000000,
-      shippingFee: 0,
-      discount: 0,
-      paymentMethod: "Bank Transfer",
-    },
-    {
-      id: "ORD-2025-004",
-      customer: {
-        name: "Lê Minh Châu",
-        avatar: "LMC",
-        email: "chau.le@email.com",
-        phone: "0900 111 222",
-        address: "101 Đường Trần Hưng Đạo, Quận 5, TP.HCM",
-      },
-      date: "14/01/2026",
-      amount: 6700000,
-      paymentStatus: "unpaid",
-      orderStatus: "processing",
-      items: [
-        {
-          id: "1",
-          name: "Bộ Sưu Tập Nghệ Thuật",
-          image: "🖼️",
-          quantity: 1,
-          price: 6700000,
-        },
-      ],
-      subtotal: 6700000,
-      shippingFee: 0,
-      discount: 0,
-      paymentMethod: "Credit Card",
-    },
-    {
-      id: "ORD-2025-005",
-      customer: {
-        name: "Phạm Quốc Dũng",
-        avatar: "PQD",
-        email: "dung.pham@email.com",
-        phone: "0900 333 444",
-        address: "202 Đường Lê Duẩn, Quận 1, TP.HCM",
-      },
-      date: "14/01/2026",
-      amount: 3200000,
-      paymentStatus: "paid",
-      orderStatus: "pending",
-      items: [
-        {
-          id: "1",
-          name: "Hộp Quà Phú Quý",
-          image: "🎁",
-          quantity: 2,
-          price: 1500000,
-        },
-        {
-          id: "2",
-          name: "Vang Đỏ Chile Premium",
-          image: "🍷",
-          quantity: 1,
-          price: 1500000,
-        },
-      ],
-      subtotal: 4500000,
-      shippingFee: 50000,
-      discount: 0,
-      paymentMethod: "MoMo",
-    },
-    {
-      id: "ORD-2025-006",
-      customer: {
-        name: "Hoàng Thị Mai",
-        avatar: "HTM",
-        email: "mai.hoang@email.com",
-        phone: "0900 555 666",
-        address: "303 Đường Lê Duẩn, Quận 1, TP.HCM",
-      },
-      date: "13/01/2026",
-      amount: 12500000,
-      paymentStatus: "paid",
-      orderStatus: "shipping",
-      items: [
-        {
-          id: "1",
-          name: "Hamper Tết Sang Trọng",
-          image: "🎁",
-          quantity: 3,
-          price: 2800000,
-        },
-        {
-          id: "2",
-          name: "Trà Cao Cấp Premium",
-          image: "🍵",
-          quantity: 1,
-          price: 500000,
-        },
-      ],
-      subtotal: 8800000,
-      shippingFee: 100000,
-      discount: 0,
-      paymentMethod: "VNPay",
-    },
-    {
-      id: "ORD-2025-007",
-      customer: {
-        name: "Đỗ Văn Hùng",
-        avatar: "DVH",
-        email: "hung.do@email.com",
-        phone: "0900 777 888",
-        address: "404 Đường Lê Duẩn, Quận 1, TP.HCM",
-      },
-      date: "13/01/2026",
-      amount: 5400000,
-      paymentStatus: "unpaid",
-      orderStatus: "cancelled",
-      items: [
-        {
-          id: "1",
-          name: "Bộ Sưu Tập Nghệ Thuật",
-          image: "🖼️",
-          quantity: 1,
-          price: 6700000,
-        },
-      ],
-      subtotal: 6700000,
-      shippingFee: 0,
-      discount: 0,
-      paymentMethod: "Credit Card",
-    },
-    {
-      id: "ORD-2025-008",
-      customer: {
-        name: "Vũ Thị Lan",
-        avatar: "VTL",
-        email: "lan.vu@email.com",
-        phone: "0900 999 000",
-        address: "505 Đường Lê Duẩn, Quận 1, TP.HCM",
-      },
-      date: "12/01/2026",
-      amount: 15600000,
-      paymentStatus: "paid",
-      orderStatus: "completed",
-      items: [
-        {
-          id: "1",
-          name: "Bộ Sưu Tập Nghệ Thuật",
-          image: "🖼️",
-          quantity: 1,
-          price: 25000000,
-        },
-      ],
-      subtotal: 25000000,
-      shippingFee: 0,
-      discount: 0,
-      paymentMethod: "Bank Transfer",
-    },
-  ]);
+  // Mock data with full order details - TODO: Replace with API
+  const [orders, setOrders] = useState<Order[]>([]);
+  
+  // Fetch data from API
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+  
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await orderService.getAll();
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message);
+      }
+      
+      // Map API data to UI format
+      const apiOrders = response.data.data;
+      const mappedOrders: Order[] = await Promise.all(
+        apiOrders.map(async (apiOrder) => {
+          // Fetch user data
+          let userName = "N/A";
+          let userEmail = "";
+          let userPhone = "";
+          let userAddress = apiOrder.shippingAddress;
+          
+          try {
+            const userResponse = await userService.getById(apiOrder.userId);
+            if (userResponse.data.success) {
+              const user = userResponse.data.data;
+              userName = user.fullName || user.username;
+              userEmail = user.email;
+              userPhone = user.phone;
+              userAddress = apiOrder.shippingAddress || user.address;
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch user ${apiOrder.userId}`, err);
+          }
+          
+          // Map order details with product info
+          const items = await Promise.all(
+            apiOrder.orderDetails.map(async (detail) => {
+              let productName = "Unknown Product";
+              let productImage = "🎁";
+              
+              try {
+                const prodResponse = await productService.getById(detail.productId);
+                if (prodResponse.data.success) {
+                  productName = prodResponse.data.data.name;
+                  // Get first image if available
+                  const images = prodResponse.data.data.images || [];
+                  if (images.length > 0 && images[0].url) {
+                    productImage = images[0].url;
+                  }
+                }
+              } catch (err) {
+                console.warn(`Failed to fetch product ${detail.productId}`, err);
+              }
+              
+              return {
+                id: detail.id,
+                name: productName,
+                image: productImage,
+                quantity: detail.quantity,
+                price: detail.unitPrice,
+              };
+            })
+          );
+          
+          // Map order status to UI format
+          const statusMap: Record<string, Order["orderStatus"]> = {
+            "Pending": "pending",
+            "Confirmed": "processing",
+            "Processing": "processing",
+            "Shipping": "shipping",
+            "Delivered": "completed",
+            "Cancelled": "cancelled",
+            "Returned": "cancelled",
+          };
+          
+          return {
+            id: apiOrder.orderNumber,
+            backendId: apiOrder.id, // Store backend GUID for API updates
+            customer: {
+              name: userName,
+              avatar: userName.split(" ").map(n => n[0]).join("").substring(0, 3).toUpperCase(),
+              email: userEmail,
+              phone: userPhone,
+              address: userAddress,
+            },
+            date: new Date(apiOrder.createdAt).toLocaleDateString("vi-VN"),
+            amount: apiOrder.finalAmount,
+            paymentStatus: apiOrder.paymentMethod === "COD" ? "unpaid" : "paid",
+            orderStatus: statusMap[apiOrder.currentStatus] || "pending",
+            items,
+            subtotal: apiOrder.totalAmount,
+            shippingFee: apiOrder.shippingFee,
+            discount: apiOrder.discountAmount,
+            paymentMethod: apiOrder.paymentMethod,
+            note: apiOrder.note,
+          };
+        })
+      );
+      
+      setOrders(mappedOrders);
+    } catch (err: any) {
+      console.error("Error fetching orders:", err);
+      setError(err?.message || "Có lỗi xảy ra khi tải dữ liệu");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -399,19 +280,45 @@ export function OrderManagement() {
     }
   };
 
-  const handleUpdateStatus = (newStatus: Order["orderStatus"]) => {
+  const handleUpdateStatus = async (newStatus: Order["orderStatus"]) => {
     if (!selectedOrder) return;
 
-    setOrders(
-      orders.map((order) =>
-        order.id === selectedOrder.id
-          ? { ...order, orderStatus: newStatus }
-          : order
-      )
-    );
+    try {
+      // Map UI status back to API OrderStatus
+      const statusMap: Record<Order["orderStatus"], string> = {
+        "pending": "Pending",
+        "processing": "Processing",
+        "shipping": "Shipping",
+        "completed": "Delivered",
+        "cancelled": "Cancelled",
+      };
+      
+      const apiStatus = statusMap[newStatus] as OrderStatus;
+      
+      if (!selectedOrder.backendId) {
+        throw new Error("Không tìm thấy ID đơn hàng từ backend");
+      }
+      
+      // Call API to update status
+      await orderService.updateStatus(selectedOrder.backendId, apiStatus);
+      
+      // Update local state
+      setOrders(
+        orders.map((order) =>
+          order.id === selectedOrder.id
+            ? { ...order, orderStatus: newStatus }
+            : order
+        )
+      );
 
-    setShowStatusModal(false);
-    setSelectedOrder(null);
+      setShowStatusModal(false);
+      setSelectedOrder(null);
+      
+      console.log(`✅ Đã cập nhật trạng thái đơn hàng ${selectedOrder.id} thành ${newStatus}`);
+    } catch (err: any) {
+      console.error("Error updating order status:", err);
+      alert(`Lỗi khi cập nhật trạng thái: ${err?.message || "Unknown error"}`);
+    }
   };
 
   const handleQuickStatusChange = (order: Order) => {
@@ -456,6 +363,30 @@ export function OrderManagement() {
         </p>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+          <span className="ml-2 text-gray-600">Đang tải dữ liệu...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">❌ {error}</p>
+          <button
+            onClick={fetchOrders}
+            className="mt-2 text-red-600 hover:text-red-800 underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {/* Content - Only show when not loading */}
+      {!loading && !error && (
+        <>
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
@@ -1183,6 +1114,8 @@ export function OrderManagement() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

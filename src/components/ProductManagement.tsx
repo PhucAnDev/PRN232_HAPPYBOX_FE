@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -9,17 +9,27 @@ import {
   Package,
   AlertTriangle,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import productService, {
+  ProductResponse,
+  CreateProductRequest,
+  UpdateProductRequest,
+} from "../services/productService";
+import categoryService, { CategoryResponse } from "../services/categoryService";
+import imageService, { ImageResponse } from "../services/imageService";
+import uploadService from "../services/uploadService";
 
 interface Product {
   id: string;
   name: string;
   category: string;
+  categoryId: string;
   sku: string;
+  description: string;
   price: number;
-  stock: number;
   status: "active" | "hidden";
   image: string;
 }
@@ -29,101 +39,93 @@ export function ProductManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: "",
+    categoryId: "",
     price: "",
-    stock: "",
     sku: "",
-    image: "",
   });
 
-  // Mock data
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: "1",
-      name: "Hamper Tết Phú Quý",
-      category: "Hampers Cao Cấp",
-      sku: "HMP-2026-001",
-      price: 4500000,
-      stock: 45,
-      status: "active",
-      image: "🎁",
-    },
-    {
-      id: "2",
-      name: "Rượu Vang Bordeaux Premium",
-      category: "Rượu Vang",
-      sku: "WINE-2026-012",
-      price: 8900000,
-      stock: 8,
-      status: "active",
-      image: "🍷",
-    },
-    {
-      id: "3",
-      name: "Hộp Quà Trà Cao Cấp",
-      category: "Trà & Cafe",
-      sku: "TEA-2026-045",
-      price: 2500000,
-      stock: 120,
-      status: "active",
-      image: "🍵",
-    },
-    {
-      id: "4",
-      name: "Bánh Kẹo Luxury Collection",
-      category: "Bánh Kẹo",
-      sku: "CANDY-2026-078",
-      price: 1800000,
-      stock: 3,
-      status: "active",
-      image: "🍬",
-    },
-    {
-      id: "5",
-      name: "Hamper Tết Sang Trọng",
-      category: "Hampers Cao Cấp",
-      sku: "HMP-2026-002",
-      price: 6700000,
-      stock: 28,
-      status: "active",
-      image: "🎁",
-    },
-    {
-      id: "6",
-      name: "Cafe Hạt Nguyên Chất",
-      category: "Trà & Cafe",
-      sku: "COFFEE-2026-021",
-      price: 1200000,
-      stock: 0,
-      status: "hidden",
-      image: "☕",
-    },
-    {
-      id: "7",
-      name: "Champagne Moët & Chandon",
-      category: "Rượu Vang",
-      sku: "WINE-2026-089",
-      price: 15600000,
-      stock: 12,
-      status: "active",
-      image: "🍾",
-    },
-    {
-      id: "8",
-      name: "Hộp Quà Tết Gia Đình",
-      category: "Hampers Cao Cấp",
-      sku: "HMP-2026-015",
-      price: 3200000,
-      stock: 65,
-      status: "active",
-      image: "🎁",
-    },
-  ]);
+  // Image upload states
+  const [selectedImages, setSelectedImages] = useState<File[]>([]); // New images to upload
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]); // Preview URLs
+  const [existingImages, setExistingImages] = useState<ImageResponse[]>([]); // Images already in DB
+
+  // Data states
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [productsRes, categoriesRes] = await Promise.all([
+        productService.getAll(),
+        categoryService.getAll(),
+      ]);
+
+      if (productsRes.data.success && categoriesRes.data.success) {
+        // Map ProductResponse to Product with images
+        const productsWithImages = await Promise.all(
+          productsRes.data.data.map(async (p) => {
+            try {
+              const imagesRes = await imageService.getByProduct(p.id);
+              const images = imagesRes.data.success ? imagesRes.data.data : [];
+
+              // Get main image or first image
+              const mainImage = images.find((img) => img.isMain) || images[0];
+
+              return {
+                id: p.id,
+                name: p.name,
+                category: p.categoryName || "Chưa phân loại",
+                categoryId: p.categoryId,
+                sku: p.sku,
+                description: p.description,
+                price: p.price,
+                status: p.isActive ? "active" : "hidden",
+                image: mainImage?.url || "🎁", // Use image URL or emoji fallback
+              };
+            } catch (err) {
+              // If image fetch fails, use emoji
+              return {
+                id: p.id,
+                name: p.name,
+                category: p.categoryName || "Chưa phân loại",
+                categoryId: p.categoryId,
+                sku: p.sku,
+                description: p.description,
+                price: p.price,
+                status: p.isActive ? "active" : "hidden",
+                image: "🎁",
+              };
+            }
+          }),
+        );
+
+        setProducts(productsWithImages);
+        setCategories(categoriesRes.data.data);
+      } else {
+        setError("Không thể tải dữ liệu");
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Có lỗi xảy ra khi tải dữ liệu");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -132,94 +134,400 @@ export function ProductManagement() {
     }).format(amount);
   };
 
-  const handleToggleStatus = (productId: string) => {
-    setProducts(
-      products.map((product) =>
-        product.id === productId
-          ? {
-              ...product,
-              status: product.status === "active" ? "hidden" : "active",
-            }
-          : product
-      )
-    );
-  };
+  const handleToggleStatus = async (productId: string) => {
+    try {
+      const product = products.find((p) => p.id === productId);
+      if (!product) return;
 
-  const handleDeleteProduct = (productId: string) => {
-    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-      setProducts(products.filter((product) => product.id !== productId));
+      const updateData: UpdateProductRequest = {
+        isActive: product.status === "hidden", // Toggle
+      };
+
+      const response = await productService.update(productId, updateData);
+
+      if (response.data.success) {
+        // Update local state
+        setProducts(
+          products.map((p) =>
+            p.id === productId
+              ? {
+                  ...p,
+                  status: p.status === "active" ? "hidden" : "active",
+                }
+              : p,
+          ),
+        );
+      } else {
+        alert("Không thể cập nhật trạng thái");
+      }
+    } catch (err) {
+      console.error("Error toggling status:", err);
+      alert("Có lỗi xảy ra khi cập nhật trạng thái");
     }
   };
 
-  const handleEditProduct = (product: Product) => {
+  const handleDeleteProduct = async (productId: string) => {
+    if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
+
+    try {
+      const response = await productService.delete(productId);
+
+      if (response.data.success) {
+        setProducts(products.filter((product) => product.id !== productId));
+      } else {
+        alert("Không thể xóa sản phẩm");
+      }
+    } catch (err) {
+      console.error("Error deleting product:", err);
+      alert("Có lỗi xảy ra khi xóa sản phẩm");
+    }
+  };
+
+  const handleEditProduct = async (product: Product) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
-      description: "",
-      category: product.category,
+      description: product.description,
+      categoryId: product.categoryId,
       price: product.price.toString(),
-      stock: product.stock.toString(),
       sku: product.sku,
-      image: product.image,
     });
+
+    // Fetch existing images from API
+    try {
+      const imagesResponse = await imageService.getByProduct(product.id);
+      if (imagesResponse.data.success && imagesResponse.data.data.length > 0) {
+        const images = imagesResponse.data.data.sort(
+          (a: any, b: any) => a.sortOrder - b.sortOrder,
+        );
+
+        // Store existing images with IDs for deletion tracking
+        setExistingImages(images);
+
+        // Set URLs as previews
+        const imageUrls = images.map((img: any) => img.url);
+        setImagePreviews(imageUrls);
+        
+        console.log(
+          `✅ Đã load ${imageUrls.length} ảnh của sản phẩm:`,
+          images,
+        );
+      } else {
+        setExistingImages([]);
+        setImagePreviews([]);
+      }
+    } catch (error) {
+      console.error("❌ Lỗi khi load ảnh sản phẩm:", error);
+      setExistingImages([]);
+      setImagePreviews([]);
+    }
+
+    // Reset selected images (user will add new ones if needed)
+    setSelectedImages([]);
     setShowAddModal(true);
   };
 
   const handleAddNewProduct = () => {
-    setEditingProduct(null);
-    setFormData({
-      name: "",
-      description: "",
-      category: "",
-      price: "",
-      stock: "",
-      sku: "",
-      image: "",
-    });
+    resetForm(); // Clear all form and image states
     setShowAddModal(true);
   };
 
-  const handleSaveProduct = () => {
-    if (editingProduct) {
-      // Update existing product
-      setProducts(
-        products.map((product) =>
-          product.id === editingProduct.id
-            ? {
-                ...product,
-                name: formData.name,
-                category: formData.category,
-                price: parseFloat(formData.price),
-                stock: parseInt(formData.stock),
-                sku: formData.sku,
-              }
-            : product
-        )
-      );
-    } else {
-      // Add new product
-      const newProduct: Product = {
-        id: (products.length + 1).toString(),
-        name: formData.name,
-        category: formData.category,
-        sku: formData.sku,
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
-        status: "active",
-        image: "🎁",
-      };
-      setProducts([...products, newProduct]);
+  const handleSaveProduct = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      alert("Vui lòng nhập tên sản phẩm");
+      return;
     }
-    setShowAddModal(false);
+    if (!formData.sku.trim()) {
+      alert("Vui lòng nhập SKU");
+      return;
+    }
+    if (!formData.categoryId) {
+      alert("Vui lòng chọn danh mục");
+      return;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      alert("Vui lòng nhập giá hợp lệ");
+      return;
+    }
+
+    try {
+      if (editingProduct) {
+        // Update existing product
+        console.log("📝 Editing Product ID:", editingProduct.id);
+        console.log("📝 Editing Product:", editingProduct);
+        
+        const updateData: UpdateProductRequest = {
+          sku: formData.sku,
+          name: formData.name,
+          description: formData.description,
+          price: parseFloat(formData.price),
+          categoryId: formData.categoryId,
+        };
+
+        console.log("📝 Update Data:", updateData);
+        const response = await productService.update(
+          editingProduct.id,
+          updateData,
+        );
+
+        console.log("📥 Response:", response);
+
+        if (response.data.success) {
+          // Upload and save new images if any were selected
+          if (selectedImages.length > 0) {
+            try {
+              console.log(
+                `📤 Đang upload ${selectedImages.length} ảnh lên Cloudinary...`,
+              );
+
+              // Upload images to Cloudinary
+              const imageUrls =
+                await uploadService.uploadMultipleImages(selectedImages);
+              console.log("☁️ Upload Cloudinary thành công:", imageUrls);
+
+              // Save image URLs to database
+              await Promise.all(
+                imageUrls.map(async (url, index) => {
+                  await imageService.create({
+                    url: url,
+                    isMain: index === 0,
+                    sortOrder: index,
+                    productId: editingProduct.id,
+                  });
+                }),
+              );
+
+              console.log("✅ Lưu ảnh vào database thành công");
+            } catch (imgErr: any) {
+              console.error("❌ Lỗi upload ảnh:", imgErr);
+
+              // Check if it's Cloudinary setup issue
+              if (imgErr.message?.includes("Upload failed")) {
+                alert(
+                  `⚠️ Lỗi upload ảnh lên Cloudinary.\n\n` +
+                    `Có thể bạn chưa setup Cloudinary. Xem console để biết hướng dẫn.\n\n` +
+                    `Hoặc tạm thời comment dòng import uploadService để dùng base64.`,
+                );
+                console.error(uploadService.constructor.getSetupInstructions());
+              } else {
+                alert(
+                  `Sản phẩm đã được cập nhật nhưng có lỗi khi lưu ảnh.\n\n` +
+                    `${imgErr?.response?.data?.message || imgErr?.message || "Lỗi không xác định"}`,
+                );
+              }
+            }
+          }
+
+          // Refresh data
+          await fetchData();
+          setShowAddModal(false);
+          resetForm();
+        } else {
+          alert("Không thể cập nhật sản phẩm");
+        }
+      } else {
+        // Create new product
+        const createData: CreateProductRequest = {
+          name: formData.name,
+          description: formData.description,
+          price: parseFloat(formData.price),
+          categoryId: formData.categoryId,
+          sku: formData.sku,
+        };
+
+        const response = await productService.create(createData);
+
+        if (response.data.success) {
+          const newProductId = response.data.data.id;
+          console.log("✅ Tạo sản phẩm thành công, ID:", newProductId);
+
+          // Upload and save images if any were selected
+          if (selectedImages.length > 0) {
+            try {
+              console.log(
+                `📤 Đang upload ${selectedImages.length} ảnh lên Cloudinary...`,
+              );
+
+              // Upload images to Cloudinary
+              const imageUrls =
+                await uploadService.uploadMultipleImages(selectedImages);
+              console.log("☁️ Upload Cloudinary thành công:", imageUrls);
+
+              // Save image URLs to database
+              await Promise.all(
+                imageUrls.map(async (url, index) => {
+                  await imageService.create({
+                    url: url,
+                    isMain: index === 0,
+                    sortOrder: index,
+                    productId: newProductId,
+                  });
+                }),
+              );
+
+              console.log("✅ Lưu ảnh vào database thành công");
+            } catch (imgErr: any) {
+              console.error("❌ Lỗi upload ảnh:", imgErr);
+
+              // Check if it's Cloudinary setup issue
+              if (imgErr.message?.includes("Upload failed")) {
+                alert(
+                  `⚠️ Lỗi upload ảnh lên Cloudinary.\n\n` +
+                    `Có thể bạn chưa setup Cloudinary. Xem console để biết hướng dẫn.\n\n` +
+                    `Sản phẩm đã được tạo nhưng chưa có ảnh.`,
+                );
+                console.error(uploadService.constructor.getSetupInstructions());
+              } else {
+                alert(
+                  `Sản phẩm đã được tạo nhưng có lỗi khi lưu ảnh.\n\n` +
+                    `${imgErr?.response?.data?.message || imgErr?.message || "Lỗi không xác định"}`,
+                );
+              }
+            }
+          }
+
+          // Refresh data
+          await fetchData();
+          setShowAddModal(false);
+          resetForm();
+        } else {
+          alert("Không thể tạo sản phẩm");
+        }
+      }
+    } catch (err: any) {
+      console.error("❌ Error saving product:", err);
+      console.error("Response data:", err?.response?.data);
+
+      let errorMessage = "Lỗi không xác định";
+      
+      if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.response?.data?.errors) {
+        // Backend .NET validation errors là object {field: [messages]}
+        const errors = err.response.data.errors;
+        const errorMessages = Object.keys(errors)
+          .map((key) => `${key}: ${errors[key].join(", ")}`)
+          .join("\n");
+        errorMessage = errorMessages;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      alert(`Có lỗi xảy ra khi lưu sản phẩm:\n\n${errorMessage}`);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       name: "",
       description: "",
-      category: "",
+      categoryId: "",
       price: "",
-      stock: "",
       sku: "",
-      image: "",
     });
+    setSelectedImages([]);
+    setImagePreviews([]);
+    setExistingImages([]);
+    setEditingProduct(null);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter((file) => {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        alert(`File ${file.name} không phải là ảnh`);
+        return false;
+      }
+      // Validate file size (max 5MB for base64)
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    // Create previews
+    const newPreviews: string[] = [];
+    validFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        newPreviews.push(reader.result as string);
+        if (newPreviews.length === validFiles.length) {
+          setImagePreviews([...imagePreviews, ...newPreviews]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    setSelectedImages([...selectedImages, ...validFiles]);
+  };
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (!files) return;
+
+    // Convert FileList to array and process like handleImageSelect
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        alert(`File ${file.name} không phải là ảnh`);
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    const newPreviews: string[] = [];
+    validFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        newPreviews.push(reader.result as string);
+        if (newPreviews.length === validFiles.length) {
+          setImagePreviews([...imagePreviews, ...newPreviews]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    setSelectedImages([...selectedImages, ...validFiles]);
+  };
+
+  const handleRemoveImage = async (index: number) => {
+    // Check if this is an existing image (already in DB)
+    if (index < existingImages.length) {
+      const imageToDelete = existingImages[index];
+      
+      try {
+        console.log(`🗑️ Đang xóa ảnh ID: ${imageToDelete.id} khỏi database...`);
+        await imageService.delete(imageToDelete.id);
+        console.log("✅ Đã xóa ảnh khỏi database");
+        
+        // Remove from existing images list
+        setExistingImages(existingImages.filter((_, i) => i !== index));
+        setImagePreviews(imagePreviews.filter((_, i) => i !== index));
+      } catch (error: any) {
+        console.error("❌ Lỗi khi xóa ảnh:", error);
+        alert(`Không thể xóa ảnh: ${error?.response?.data?.message || error?.message || "Lỗi không xác định"}`);
+      }
+    } else {
+      // This is a new image (not yet uploaded) - just remove from preview
+      const newImageIndex = index - existingImages.length;
+      setSelectedImages(selectedImages.filter((_, i) => i !== newImageIndex));
+      setImagePreviews(imagePreviews.filter((_, i) => i !== index));
+    }
   };
 
   const filteredProducts = products.filter((product) => {
@@ -228,7 +536,7 @@ export function ProductManagement() {
       product.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
-      categoryFilter === "all" || product.category === categoryFilter;
+      categoryFilter === "all" || product.categoryId === categoryFilter;
 
     return matchesSearch && matchesCategory;
   });
@@ -236,16 +544,38 @@ export function ProductManagement() {
   const productStats = {
     total: products.length,
     active: products.filter((p) => p.status === "active").length,
-    lowStock: products.filter((p) => p.stock < 10 && p.stock > 0).length,
-    outOfStock: products.filter((p) => p.stock === 0).length,
+    lowStock: 0, // N/A - Backend không có inventory API
+    outOfStock: 0, // N/A - Backend không có inventory API
   };
 
-  const categories = [
-    "Hampers Cao Cấp",
-    "Rượu Vang",
-    "Trà & Cafe",
-    "Bánh Kẹo",
-  ];
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 text-[#D4AF37] animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-900 font-semibold mb-2">Có lỗi xảy ra</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button
+            onClick={fetchData}
+            className="bg-[#D4AF37] hover:bg-[#C19A6B]"
+          >
+            Thử lại
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -360,8 +690,8 @@ export function ProductManagement() {
             >
               <option value="all">Tất cả danh mục</option>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
@@ -393,9 +723,6 @@ export function ProductManagement() {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Giá Bán
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Tồn Kho
-                </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Trạng Thái
                 </th>
@@ -413,8 +740,16 @@ export function ProductManagement() {
                   {/* Product Info */}
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-3xl border border-gray-200">
-                        {product.image}
+                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center border border-gray-200 overflow-hidden">
+                        {product.image.startsWith("http") ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-3xl">{product.image}</span>
+                        )}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-gray-900">
@@ -439,27 +774,6 @@ export function ProductManagement() {
                     <span className="text-sm font-bold text-gray-900">
                       {formatCurrency(product.price)}
                     </span>
-                  </td>
-
-                  {/* Stock */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
-                      {product.stock === 0 ? (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 flex items-center gap-1">
-                          <X className="h-3 w-3" />
-                          Hết hàng
-                        </span>
-                      ) : product.stock < 10 ? (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          {product.stock} còn lại
-                        </span>
-                      ) : (
-                        <span className="text-sm font-semibold text-gray-900">
-                          {product.stock}
-                        </span>
-                      )}
-                    </div>
                   </td>
 
                   {/* Status Toggle */}
@@ -601,16 +915,16 @@ export function ProductManagement() {
                       Danh Mục <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.category}
+                      value={formData.categoryId}
                       onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
+                        setFormData({ ...formData, categoryId: e.target.value })
                       }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
                     >
                       <option value="">Chọn danh mục</option>
                       {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
                         </option>
                       ))}
                     </select>
@@ -629,7 +943,13 @@ export function ProductManagement() {
                         setFormData({ ...formData, sku: e.target.value })
                       }
                       className="w-full border-gray-300 rounded-lg font-mono"
+                      disabled={!!editingProduct}
                     />
+                    {editingProduct && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        SKU không thể thay đổi khi chỉnh sửa
+                      </p>
+                    )}
                   </div>
 
                   {/* Price */}
@@ -643,22 +963,6 @@ export function ProductManagement() {
                       value={formData.price}
                       onChange={(e) =>
                         setFormData({ ...formData, price: e.target.value })
-                      }
-                      className="w-full border-gray-300 rounded-lg"
-                    />
-                  </div>
-
-                  {/* Stock */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Số Lượng Tồn Kho <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="100"
-                      value={formData.stock}
-                      onChange={(e) =>
-                        setFormData({ ...formData, stock: e.target.value })
                       }
                       className="w-full border-gray-300 rounded-lg"
                     />
@@ -691,24 +995,76 @@ export function ProductManagement() {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Hình Ảnh Sản Phẩm
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-[#D4AF37] transition-colors cursor-pointer">
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Upload className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700">
-                            Kéo thả ảnh vào đây
+                    <input
+                      type="file"
+                      id="image-upload"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleImageDrop}
+                      onClick={() =>
+                        document.getElementById("image-upload")?.click()
+                      }
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#D4AF37] transition-colors cursor-pointer"
+                    >
+                      {imagePreviews.length === 0 ? (
+                        <div className="flex flex-col items-center space-y-3">
+                          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                            <Upload className="h-8 w-8 text-gray-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-700">
+                              Kéo thả ảnh vào đây
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              hoặc click để chọn file
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            PNG, JPG lên đến 5MB
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            hoặc click để chọn file
-                          </p>
                         </div>
-                        <p className="text-xs text-gray-400">
-                          PNG, JPG lên đến 10MB
-                        </p>
-                      </div>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          {imagePreviews.map((preview, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={preview}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveImage(index);
+                                }}
+                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
+                    {imagePreviews.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        {imagePreviews.length} ảnh đã chọn. Click để thêm ảnh
+                        khác.
+                      </p>
+                    )}
+                    <p className="text-xs text-green-600 mt-2 flex items-start gap-1">
+                      <ImageIcon className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <span>
+                        ☁️ Ảnh sẽ được upload lên Cloudinary (miễn phí, nhanh,
+                        CDN). Cần setup: xem uploadService.ts
+                      </span>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -720,13 +1076,22 @@ export function ProductManagement() {
                     Xem Trước
                   </p>
                   <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-4xl border border-gray-300">
-                      🎁
+                    <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center border border-gray-300 overflow-hidden">
+                      {imagePreviews.length > 0 ? (
+                        <img
+                          src={imagePreviews[0]}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-4xl">🎁</span>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-bold text-gray-900">{formData.name}</p>
                       <p className="text-sm text-gray-600 mt-1">
-                        {formData.category || "Chưa chọn danh mục"}
+                        {categories.find((c) => c.id === formData.categoryId)
+                          ?.name || "Chưa chọn danh mục"}
                       </p>
                       {formData.price && (
                         <p className="text-sm font-bold text-[#B71C1C] mt-1">
@@ -752,10 +1117,9 @@ export function ProductManagement() {
                   className="flex-1 bg-[#D4AF37] hover:bg-[#C19A6B] text-white font-semibold py-3"
                   disabled={
                     !formData.name ||
-                    !formData.category ||
+                    !formData.categoryId ||
                     !formData.sku ||
-                    !formData.price ||
-                    !formData.stock
+                    !formData.price
                   }
                 >
                   {editingProduct ? "Cập Nhật Sản Phẩm" : "Thêm Sản Phẩm"}
