@@ -42,25 +42,23 @@ export interface ApiResponse<T> {
 
 // ====== Service ======
 const productService = {
-  // GET /api/product/GetAllProducts
-  getAll: () =>
-    api.get<ApiResponse<ProductResponse[]>>("/product/GetAllProducts"),
+  // GET /api/Product
+  getAll: () => api.get<ApiResponse<ProductResponse[]>>("/Product"),
 
-  // GET /api/product/GetProductById/:id
+  // GET /api/Product/:id
   getById: (id: string) =>
-    api.get<ApiResponse<ProductResponse>>(`/product/GetProductById/${id}`),
+    api.get<ApiResponse<ProductResponse>>(`/Product/${id}`),
 
-  // POST /api/product/CreateProduct
+  // POST /api/Product
   create: (data: CreateProductRequest) =>
-    api.post<ApiResponse<ProductResponse>>("/product/CreateProduct", data),
+    api.post<ApiResponse<ProductResponse>>("/Product", data),
 
-  // PUT /api/product/UpdateProduct/:id
+  // PUT /api/Product?id=:id
   update: (id: string, data: UpdateProductRequest) =>
-    api.put<ApiResponse<ProductResponse>>(`/product/UpdateProduct/${id}`, data),
+    api.put<ApiResponse<ProductResponse>>(`/Product?id=${id}`, data),
 
-  // DELETE /api/product/DeleteProduct/:id
-  delete: (id: string) =>
-    api.delete<ApiResponse<null>>(`/product/DeleteProduct/${id}`),
+  // DELETE /api/Product/:id
+  delete: (id: string) => api.delete<ApiResponse<null>>(`/Product/${id}`),
 };
 
 export default productService;

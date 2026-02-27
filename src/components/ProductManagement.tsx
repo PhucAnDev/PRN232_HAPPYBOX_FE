@@ -21,6 +21,10 @@ import productService, {
 import categoryService, { CategoryResponse } from "../services/categoryService";
 import imageService, { ImageResponse } from "../services/imageService";
 import uploadService from "../services/uploadService";
+import inventoryService, {
+  InventoryResponse,
+  InventoryStatus,
+} from "../services/inventoryService";
 
 interface Product {
   id: string;
@@ -32,6 +36,7 @@ interface Product {
   price: number;
   status: "active" | "hidden";
   image: string;
+  inventory?: InventoryResponse | null;
 }
 
 export function ProductManagement() {
@@ -49,6 +54,8 @@ export function ProductManagement() {
     categoryId: "",
     price: "",
     sku: "",
+    quantity: "",
+    minStockLevel: "",
   });
 
   // Image upload states
@@ -76,12 +83,20 @@ export function ProductManagement() {
       ]);
 
       if (productsRes.data.success && categoriesRes.data.success) {
-        // Map ProductResponse to Product with images
+        // Map ProductResponse to Product with images and inventory
         const productsWithImages = await Promise.all(
           productsRes.data.data.map(async (p) => {
             try {
-              const imagesRes = await imageService.getByProduct(p.id);
+              const [imagesRes, inventoryRes] = await Promise.all([
+                imageService.getByProduct(p.id),
+                inventoryService.getByProductId(p.id).catch(() => null),
+              ]);
+
               const images = imagesRes.data.success ? imagesRes.data.data : [];
+              const inventory =
+                inventoryRes && inventoryRes.data.success
+                  ? inventoryRes.data.data
+                  : null;
 
               // Get main image or first image
               const mainImage = images.find((img) => img.isMain) || images[0];
@@ -96,6 +111,7 @@ export function ProductManagement() {
                 price: p.price,
                 status: p.isActive ? "active" : "hidden",
                 image: mainImage?.url || "🎁", // Use image URL or emoji fallback
+                inventory: inventory,
               };
             } catch (err) {
               // If image fetch fails, use emoji
@@ -109,6 +125,7 @@ export function ProductManagement() {
                 price: p.price,
                 status: p.isActive ? "active" : "hidden",
                 image: "🎁",
+                inventory: null,
               };
             }
           }),
@@ -132,6 +149,55 @@ export function ProductManagement() {
       style: "currency",
       currency: "VND",
     }).format(amount);
+  };
+
+  // Render inventory status badge
+  const renderInventoryBadge = (
+    inventory: InventoryResponse | null | undefined,
+  ) => {
+    if (!inventory) {
+      return (
+        <div className="flex items-center justify-center">
+          <span className="text-xs text-gray-400">Chưa có</span>
+        </div>
+      );
+    }
+
+    const { quantity, minStockLevel, status } = inventory;
+
+    // Hết hàng
+    if (status === InventoryStatus.OutOfStock || quantity === 0) {
+      return (
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-sm font-bold text-gray-900">{quantity}</span>
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700">
+            <X className="h-3 w-3" />
+            <span className="text-xs font-semibold">Hết hàng</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Sắp hết (LowStock)
+    if (status === InventoryStatus.LowStock || quantity <= minStockLevel) {
+      const remaining = quantity;
+      return (
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-sm font-bold text-gray-900">{quantity}</span>
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-700">
+            <AlertTriangle className="h-3 w-3" />
+            <span className="text-xs font-semibold">{remaining} còn lại</span>
+          </div>
+        </div>
+      );
+    }
+
+    // Còn hàng đủ (InStock)
+    return (
+      <div className="flex items-center justify-center">
+        <span className="text-sm font-bold text-gray-900">{quantity}</span>
+      </div>
+    );
   };
 
   const handleToggleStatus = async (productId: string) => {
@@ -191,6 +257,8 @@ export function ProductManagement() {
       categoryId: product.categoryId,
       price: product.price.toString(),
       sku: product.sku,
+      quantity: product.inventory?.quantity?.toString() || "",
+      minStockLevel: product.inventory?.minStockLevel?.toString() || "",
     });
 
     // Fetch existing images from API
@@ -207,11 +275,8 @@ export function ProductManagement() {
         // Set URLs as previews
         const imageUrls = images.map((img: any) => img.url);
         setImagePreviews(imageUrls);
-        
-        console.log(
-          `✅ Đã load ${imageUrls.length} ảnh của sản phẩm:`,
-          images,
-        );
+
+        console.log(`✅ Đã load ${imageUrls.length} ảnh của sản phẩm:`, images);
       } else {
         setExistingImages([]);
         setImagePreviews([]);
@@ -250,13 +315,21 @@ export function ProductManagement() {
       alert("Vui lòng nhập giá hợp lệ");
       return;
     }
+    if (!formData.quantity || parseInt(formData.quantity) < 0) {
+      alert("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0)");
+      return;
+    }
+    if (!formData.minStockLevel || parseInt(formData.minStockLevel) < 0) {
+      alert("Vui lòng nhập số lượng tối thiểu hợp lệ (>= 0)");
+      return;
+    }
 
     try {
       if (editingProduct) {
         // Update existing product
         console.log("📝 Editing Product ID:", editingProduct.id);
         console.log("📝 Editing Product:", editingProduct);
-        
+
         const updateData: UpdateProductRequest = {
           sku: formData.sku,
           name: formData.name,
@@ -317,6 +390,33 @@ export function ProductManagement() {
                 );
               }
             }
+          }
+
+          // Update or create inventory
+          try {
+            console.log("📦 Đang cập nhật inventory...");
+            if (editingProduct.inventory) {
+              // Update existing inventory
+              await inventoryService.update(editingProduct.inventory.id, {
+                quantity: parseInt(formData.quantity),
+                minStockLevel: parseInt(formData.minStockLevel),
+              });
+              console.log("✅ Cập nhật inventory thành công");
+            } else {
+              // Create new inventory if not exists
+              await inventoryService.create({
+                productId: editingProduct.id,
+                quantity: parseInt(formData.quantity),
+                minStockLevel: parseInt(formData.minStockLevel),
+              });
+              console.log("✅ Tạo inventory thành công");
+            }
+          } catch (invErr: any) {
+            console.error("❌ Lỗi cập nhật inventory:", invErr);
+            alert(
+              `Sản phẩm đã được cập nhật nhưng có lỗi khi cập nhật inventory.\n\n` +
+                `${invErr?.response?.data?.message || invErr?.message || "Lỗi không xác định"}`,
+            );
           }
 
           // Refresh data
@@ -387,6 +487,23 @@ export function ProductManagement() {
             }
           }
 
+          // Create inventory for the new product
+          try {
+            console.log("📦 Đang tạo inventory cho sản phẩm...");
+            await inventoryService.create({
+              productId: newProductId,
+              quantity: parseInt(formData.quantity),
+              minStockLevel: parseInt(formData.minStockLevel),
+            });
+            console.log("✅ Tạo inventory thành công");
+          } catch (invErr: any) {
+            console.error("❌ Lỗi tạo inventory:", invErr);
+            alert(
+              `Sản phẩm đã được tạo nhưng có lỗi khi tạo inventory.\n\n` +
+                `${invErr?.response?.data?.message || invErr?.message || "Lỗi không xác định"}`,
+            );
+          }
+
           // Refresh data
           await fetchData();
           setShowAddModal(false);
@@ -400,7 +517,7 @@ export function ProductManagement() {
       console.error("Response data:", err?.response?.data);
 
       let errorMessage = "Lỗi không xác định";
-      
+
       if (err?.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err?.response?.data?.errors) {
@@ -425,6 +542,8 @@ export function ProductManagement() {
       categoryId: "",
       price: "",
       sku: "",
+      quantity: "",
+      minStockLevel: "",
     });
     setSelectedImages([]);
     setImagePreviews([]);
@@ -509,18 +628,20 @@ export function ProductManagement() {
     // Check if this is an existing image (already in DB)
     if (index < existingImages.length) {
       const imageToDelete = existingImages[index];
-      
+
       try {
         console.log(`🗑️ Đang xóa ảnh ID: ${imageToDelete.id} khỏi database...`);
         await imageService.delete(imageToDelete.id);
         console.log("✅ Đã xóa ảnh khỏi database");
-        
+
         // Remove from existing images list
         setExistingImages(existingImages.filter((_, i) => i !== index));
         setImagePreviews(imagePreviews.filter((_, i) => i !== index));
       } catch (error: any) {
         console.error("❌ Lỗi khi xóa ảnh:", error);
-        alert(`Không thể xóa ảnh: ${error?.response?.data?.message || error?.message || "Lỗi không xác định"}`);
+        alert(
+          `Không thể xóa ảnh: ${error?.response?.data?.message || error?.message || "Lỗi không xác định"}`,
+        );
       }
     } else {
       // This is a new image (not yet uploaded) - just remove from preview
@@ -724,6 +845,9 @@ export function ProductManagement() {
                   Giá Bán
                 </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Tồn Kho
+                </th>
+                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Trạng Thái
                 </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -774,6 +898,11 @@ export function ProductManagement() {
                     <span className="text-sm font-bold text-gray-900">
                       {formatCurrency(product.price)}
                     </span>
+                  </td>
+
+                  {/* Inventory */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {renderInventoryBadge(product.inventory)}
                   </td>
 
                   {/* Status Toggle */}
@@ -870,7 +999,7 @@ export function ProductManagement() {
 
       {/* Add/Edit Product Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] px-6 py-5 flex items-center justify-between sticky top-0 z-10">
@@ -965,6 +1094,43 @@ export function ProductManagement() {
                         setFormData({ ...formData, price: e.target.value })
                       }
                       className="w-full border-gray-300 rounded-lg"
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Số Lượng Tồn Kho <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="100"
+                      value={formData.quantity}
+                      onChange={(e) =>
+                        setFormData({ ...formData, quantity: e.target.value })
+                      }
+                      className="w-full border-gray-300 rounded-lg"
+                      min="0"
+                    />
+                  </div>
+
+                  {/* Min Stock Level */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Số Lượng Tối Thiểu <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="5"
+                      value={formData.minStockLevel}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          minStockLevel: e.target.value,
+                        })
+                      }
+                      className="w-full border-gray-300 rounded-lg"
+                      min="0"
                     />
                   </div>
                 </div>
@@ -1119,7 +1285,9 @@ export function ProductManagement() {
                     !formData.name ||
                     !formData.categoryId ||
                     !formData.sku ||
-                    !formData.price
+                    !formData.price ||
+                    !formData.quantity ||
+                    !formData.minStockLevel
                   }
                 >
                   {editingProduct ? "Cập Nhật Sản Phẩm" : "Thêm Sản Phẩm"}

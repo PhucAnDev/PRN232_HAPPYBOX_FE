@@ -1,5 +1,6 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { OrderManagement } from "./OrderManagement";
+import dashboardService, { DashboardSummaryResponse } from "../services/dashboardService";
 import { ProductManagement } from "./ProductManagement";
 import { CustomerManagement } from "./CustomerManagement";
 import { AdminSettings } from "./AdminSettings";
@@ -45,6 +46,33 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [dashboardData, setDashboardData] = useState<DashboardSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dashboard data on mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // Get data for last 30 days
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        const response = await dashboardService.getSummary(startDate, endDate);
+        if (response.data.success) {
+          setDashboardData(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (activeMenu === 'dashboard') {
+      fetchDashboardData();
+    }
+  }, [activeMenu]);
 
   // Mock data for revenue chart
   const revenueData = [
@@ -111,7 +139,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         text: "text-yellow-800",
         label: "Chờ xử lý",
       },
-      shipping: { bg: "bg-blue-100", text: "text-blue-800", label: "Đang giao" },
+      shipping: {
+        bg: "bg-blue-100",
+        text: "text-blue-800",
+        label: "Đang giao",
+      },
       done: { bg: "bg-green-100", text: "text-green-800", label: "Hoàn thành" },
     };
     const badge = badges[status as keyof typeof badges];
@@ -275,11 +307,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     className="text-3xl font-bold text-gray-900 mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    {formatCurrency(401000000)}
+                    {loading ? "Đang tải..." : formatCurrency(dashboardData?.totalRevenue || 0)}
                   </p>
                   <div className="flex items-center text-sm">
                     <span className="text-green-600 font-semibold">+15%</span>
-                    <span className="text-gray-500 ml-2">so với tuần trước</span>
+                    <span className="text-gray-500 ml-2">
+                      so với tuần trước
+                    </span>
                   </div>
                 </div>
 
@@ -297,7 +331,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     className="text-3xl font-bold text-gray-900 mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    127
+                    {loading ? "..." : dashboardData?.totalOrders || 0}
                   </p>
                   <div className="flex items-center text-sm">
                     <span className="text-yellow-600 font-semibold">
@@ -324,7 +358,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   </p>
                   <div className="flex items-center text-sm">
                     <span className="text-green-600 font-semibold">+8%</span>
-                    <span className="text-gray-500 ml-2">so với tuần trước</span>
+                    <span className="text-gray-500 ml-2">
+                      so với tuần trước
+                    </span>
                   </div>
                 </div>
 
@@ -516,6 +552,3 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     </div>
   );
 }
-
-
-

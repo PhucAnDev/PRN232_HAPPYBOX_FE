@@ -29,28 +29,28 @@ export interface ApiResponse<T> {
 
 // ====== Service ======
 const categoryService = {
-  // GET /api/category/GetAllCategories
+  // GET /api/Category/GetAllCategories
   getAll: () =>
-    api.get<ApiResponse<CategoryResponse[]>>("/category/GetAllCategories"),
+    api.get<ApiResponse<CategoryResponse[]>>("/Category/GetAllCategories"),
 
-  // GET /api/category/GetCategoryById/:id
+  // GET /api/Category/GetCategoryById/:id
   getById: (id: string) =>
-    api.get<ApiResponse<CategoryResponse>>(`/category/GetCategoryById/${id}`),
+    api.get<ApiResponse<CategoryResponse>>(`/Category/GetCategoryById/${id}`),
 
-  // POST /api/category/CreateCategory
+  // POST /api/Category/CreateCategory
   create: (data: CreateCategoryRequest) =>
-    api.post<ApiResponse<CategoryResponse>>("/category/CreateCategory", data),
+    api.post<ApiResponse<CategoryResponse>>("/Category/CreateCategory", data),
 
-  // PUT /api/category/UpdateCategory/:id
+  // PUT /api/Category/UpdateCategory/:id
   update: (id: string, data: UpdateCategoryRequest) =>
     api.put<ApiResponse<CategoryResponse>>(
-      `/category/UpdateCategory/${id}`,
+      `/Category/UpdateCategory/${id}`,
       data,
     ),
 
-  // DELETE /api/category/DeleteCategory/:id
+  // DELETE /api/Category/DeleteCategory/:id
   delete: (id: string) =>
-    api.delete<ApiResponse<null>>(`/category/DeleteCategory/${id}`),
+    api.delete<ApiResponse<null>>(`/Category/DeleteCategory/${id}`),
 };
 
 export default categoryService;

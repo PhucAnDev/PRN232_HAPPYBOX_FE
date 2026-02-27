@@ -2,13 +2,13 @@ import api from "./api";
 
 // ====== Enums (khớp với Backend) ======
 export enum OrderStatus {
-  Pending = "Pending",
-  Confirmed = "Confirmed",
-  Processing = "Processing",
-  Shipping = "Shipping",
-  Delivered = "Delivered",
-  Cancelled = "Cancelled",
-  Returned = "Returned",
+  Pending = 0,
+  Confirmed = 1,
+  Processing = 2,
+  Shipping = 3,
+  Delivered = 4,
+  Cancelled = 5,
+  Returned = 6,
 }
 
 // ====== Types (khớp với Backend DTOs) ======
@@ -36,23 +36,23 @@ export interface OrderResponse {
   orderNumber: string;
   userId: string;
   voucherId?: string;
-  
+
   // Financial
   totalAmount: number;
   discountAmount: number;
   shippingFee: number;
   finalAmount: number;
-  
+
   // Status & Shipping
   currentStatus: OrderStatus;
   paymentMethod: string;
   shippingAddress: string;
   shippingMethod: string;
   trackingNumber: string;
-  
+
   createdAt: string;
   note: string;
-  
+
   orderDetails: OrderDetailResponse[];
   orderHistories: OrderHistoryResponse[];
 }
@@ -106,8 +106,7 @@ const orderService = {
   getAll: () => api.get<ApiResponse<OrderResponse[]>>("/orders"),
 
   // GET /api/orders/:id
-  getById: (id: string) =>
-    api.get<ApiResponse<OrderResponse>>(`/orders/${id}`),
+  getById: (id: string) => api.get<ApiResponse<OrderResponse>>(`/orders/${id}`),
 
   // POST /api/orders
   create: (data: CreateOrderRequest) =>

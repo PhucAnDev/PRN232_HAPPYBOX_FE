@@ -26,11 +26,11 @@ export interface ApiResponse<T> {
 
 // ====== Service ======
 const userService = {
-  // GET /api/users (if exists)
-  getAll: () => api.get<ApiResponse<UserResponse[]>>("/users"),
+  // GET /api/User
+  getAll: () => api.get<ApiResponse<UserResponse[]>>("/User"),
 
-  // GET /api/users/:id
-  getById: (id: string) => api.get<ApiResponse<UserResponse>>(`/users/${id}`),
+  // GET /api/User/:id
+  getById: (id: string) => api.get<ApiResponse<UserResponse>>(`/User/${id}`),
 
   // Helper: Get user display name with fallback
   getUserDisplayName: (user?: UserResponse | null): string => {
