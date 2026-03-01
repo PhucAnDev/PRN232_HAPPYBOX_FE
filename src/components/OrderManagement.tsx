@@ -130,12 +130,15 @@ export function OrderManagement() {
 
           try {
             const userResponse = await userService.getById(apiOrder.userId);
-            if (userResponse.data.success) {
-              const user = userResponse.data.data;
-              userName = user.fullName || user.username;
-              userEmail = user.email;
-              userPhone = user.phone;
-              userAddress = apiOrder.shippingAddress || user.address;
+            // UserController returns UserResponse directly (not wrapped in ApiResponse)
+            const rawData = userResponse.data as any;
+            // Handle both wrapped { success, data } and raw UserResponse formats
+            const user = rawData?.data || rawData;
+            if (user && (user.fullName || user.username || user.email)) {
+              userName = user.fullName || user.username || "N/A";
+              userEmail = user.email || "";
+              userPhone = user.phone || "";
+              userAddress = apiOrder.shippingAddress || user.address || "";
             }
           } catch (err) {
             console.warn(`Failed to fetch user ${apiOrder.userId}`, err);
@@ -896,7 +899,7 @@ export function OrderManagement() {
 
           {/* Order Detail Modal */}
           {showDetailModal && selectedOrder && (
-            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
                 {/* Modal Header */}
                 <div className="px-8 py-6 border-b border-gray-200 flex items-center justify-between bg-white flex-shrink-0 rounded-t-xl">
@@ -1046,8 +1049,16 @@ export function OrderManagement() {
                               key={item.id}
                               className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
                             >
-                              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-3xl border border-gray-200 flex-shrink-0">
-                                {item.image}
+                              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-3xl border border-gray-200 flex-shrink-0 overflow-hidden">
+                                {item.image.startsWith("http") ? (
+                                  <img
+                                    src={item.image}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  item.image
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">

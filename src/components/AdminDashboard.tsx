@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect } from "react";
 import { OrderManagement } from "./OrderManagement";
-import dashboardService, { DashboardSummaryResponse } from "../services/dashboardService";
+import dashboardService, {
+  DashboardSummaryResponse,
+} from "../services/dashboardService";
 import { ProductManagement } from "./ProductManagement";
 import { CustomerManagement } from "./CustomerManagement";
 import { AdminSettings } from "./AdminSettings";
@@ -10,6 +12,7 @@ import { VoucherManagement } from "./VoucherManagement";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
+import useAuth from "../hooks/useAuth";
 import {
   LayoutDashboard,
   Package,
@@ -45,8 +48,10 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
+  const { user, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState("dashboard");
-  const [dashboardData, setDashboardData] = useState<DashboardSummaryResponse | null>(null);
+  const [dashboardData, setDashboardData] =
+    useState<DashboardSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Fetch dashboard data on mount
@@ -55,21 +60,23 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       try {
         setLoading(true);
         // Get data for last 30 days
-        const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
+        const endDate = new Date().toISOString().split("T")[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
+
         const response = await dashboardService.getSummary(startDate, endDate);
         if (response.data.success) {
           setDashboardData(response.data.data);
         }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (activeMenu === 'dashboard') {
+    if (activeMenu === "dashboard") {
       fetchDashboardData();
     }
   }, [activeMenu]);
@@ -213,13 +220,31 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <div className="p-6 border-t border-white/10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center font-bold">
-              AD
+              {user?.fullName
+                ? user.fullName
+                    .split(" ")
+                    .map((n: string) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()
+                : "AD"}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold">Admin User</p>
-              <p className="text-xs text-white/60">admin@tetdenroi.vn</p>
+              <p className="text-sm font-semibold">
+                {user?.fullName || user?.username || "Admin User"}
+              </p>
+              <p className="text-xs text-white/60">
+                {user?.email || "admin@tetdenroi.vn"}
+              </p>
             </div>
-            <button className="text-white/60 hover:text-white">
+            <button
+              className="text-white/60 hover:text-white"
+              onClick={async () => {
+                await logout();
+                onNavigate?.("home");
+              }}
+              title="Đăng xuất"
+            >
               <LogOut className="h-5 w-5" />
             </button>
           </div>
@@ -307,7 +332,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     className="text-3xl font-bold text-gray-900 mb-2"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    {loading ? "Đang tải..." : formatCurrency(dashboardData?.totalRevenue || 0)}
+                    {loading
+                      ? "Đang tải..."
+                      : formatCurrency(dashboardData?.totalRevenue || 0)}
                   </p>
                   <div className="flex items-center text-sm">
                     <span className="text-green-600 font-semibold">+15%</span>

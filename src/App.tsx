@@ -22,6 +22,7 @@ import { ChangePassword } from "./components/ChangePassword";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { VerifyOTP } from "./components/VerifyOTP";
 import { ResetPassword } from "./components/ResetPassword";
+import { ChatBot } from "./components/ChatBot";
 import useAuth from "./hooks/useAuth";
 import useCart from "./hooks/useCart";
 
@@ -70,6 +71,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <LoginRegister onNavigate={handleNavigate} onLoginSuccess={() => {}} />
+        <ChatBot />
       </div>
     );
   }
@@ -93,6 +95,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -116,6 +119,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -139,6 +143,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -162,6 +167,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -185,6 +191,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -208,6 +215,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -219,6 +227,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <AdminDashboard onNavigate={handleNavigate} />
+        <ChatBot />
       </div>
     );
   }
@@ -230,6 +239,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <CheckoutPage onNavigate={handleNavigate} cartCount={totalItems} />
+        <ChatBot />
       </div>
     );
   }
@@ -253,6 +263,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -276,6 +287,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -299,6 +311,7 @@ export default function App() {
           onClose={() => setIsCartOpen(false)}
           onNavigate={handleNavigate}
         />
+        <ChatBot />
       </div>
     );
   }
@@ -310,6 +323,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <ForgotPassword onNavigate={handleNavigate} />
+        <ChatBot />
       </div>
     );
   }
@@ -321,6 +335,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <VerifyOTP onNavigate={handleNavigate} />
+        <ChatBot />
       </div>
     );
   }
@@ -332,6 +347,7 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <ResetPassword onNavigate={handleNavigate} />
+        <ChatBot />
       </div>
     );
   }
@@ -358,6 +374,7 @@ export default function App() {
         onClose={() => setIsCartOpen(false)}
         onNavigate={handleNavigate}
       />
+      <ChatBot />
     </div>
   );
 }
