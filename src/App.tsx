@@ -227,7 +227,6 @@ export default function App() {
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
         <AdminDashboard onNavigate={handleNavigate} />
-        <ChatBot />
       </div>
     );
   }
