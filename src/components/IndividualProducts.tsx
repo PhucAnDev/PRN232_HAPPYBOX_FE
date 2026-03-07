@@ -7,6 +7,9 @@ import {
   ChevronLeft,
   Star,
   Sparkles,
+  X,
+  TriangleAlert,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
@@ -14,6 +17,7 @@ import productService, { ProductResponse } from "../services/productService";
 import categoryService, { CategoryResponse } from "../services/categoryService";
 import imageService from "../services/imageService";
 import useCart from "../hooks/useCart";
+import useAuth from "../hooks/useAuth";
 
 interface Product {
   id: string;
@@ -35,7 +39,10 @@ interface IndividualProductsProps {
 }
 
 export function IndividualProducts({ onNavigate }: IndividualProductsProps) {
-  const { addToCart } = useCart();
+  const { addItem } = useCart();
+  const { isLoggedIn } = useAuth();
+  const [showLoginToast, setShowLoginToast] = useState(false);
+  const [successToast, setSuccessToast] = useState<{ name: string; image: string } | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,14 +222,17 @@ export function IndividualProducts({ onNavigate }: IndividualProductsProps) {
   );
 
   // Handle add to cart
-  const handleAddToCart = (product: Product) => {
-    addToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity: 1,
-    });
+  const handleAddToCart = async (product: Product) => {
+    if (!isLoggedIn) {
+      setShowLoginToast(true);
+      setTimeout(() => setShowLoginToast(false), 3500);
+      return;
+    }
+    const result = await addItem({ productId: product.id, quantity: 1 });
+    if ((result as any)?.error == null) {
+      setSuccessToast({ name: product.name, image: product.image });
+      setTimeout(() => setSuccessToast(null), 3000);
+    }
   };
 
   const resetFilters = () => {
@@ -238,6 +248,80 @@ export function IndividualProducts({ onNavigate }: IndividualProductsProps) {
 
   return (
     <div className="min-h-screen bg-[#FFFDF5]">
+      {/* Success Toast Notification */}
+      <div
+        className={`fixed top-6 left-1/2 z-50 -translate-x-1/2 transition-all duration-500 ${
+          successToast
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-3 bg-white border-l-4 border-[#2E7D32] rounded-xl shadow-2xl px-4 py-3 min-w-[320px] max-w-sm">
+          {/* Product image */}
+          <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-gray-100">
+            <img
+              src={successToast?.image}
+              alt={successToast?.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          {/* Text + icon */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <CheckCircle2 className="w-4 h-4 text-[#2E7D32] flex-shrink-0" />
+              <p className="text-sm font-semibold text-[#2E7D32]">Đã thêm vào giỏ hàng</p>
+            </div>
+            <p className="text-xs text-gray-600 truncate">{successToast?.name}</p>
+          </div>
+          <button
+            onClick={() => setSuccessToast(null)}
+            className="flex-shrink-0 text-gray-400 hover:text-[#2E7D32] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="h-1 bg-gray-100 rounded-b-xl overflow-hidden -mt-1 mx-px">
+          <div
+            className="h-full bg-gradient-to-r from-[#2E7D32] to-[#1B5E20] rounded-b-xl"
+            style={successToast ? { animation: "shrink 3s linear forwards" } : {}}
+          />
+        </div>
+      </div>
+
+      {/* Login Toast Notification */}
+      <div
+        className={`fixed top-6 left-1/2 z-50 -translate-x-1/2 transition-all duration-500 ${
+          showLoginToast
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-3 bg-white border-l-4 border-[#B71C1C] rounded-xl shadow-2xl px-5 py-4 min-w-[320px] max-w-sm">
+          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-gradient-to-br from-[#B71C1C] to-[#8B1538] flex items-center justify-center">
+            <TriangleAlert className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[#B71C1C]">Chưa đăng nhập</p>
+            <p className="text-xs text-gray-600 mt-0.5">Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.</p>
+          </div>
+          <button
+            onClick={() => setShowLoginToast(false)}
+            className="flex-shrink-0 text-gray-400 hover:text-[#B71C1C] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {/* Progress bar */}
+        <div className="h-1 bg-gray-100 rounded-b-xl overflow-hidden -mt-1 mx-px">
+          <div
+            className={`h-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] rounded-b-xl ${
+              showLoginToast ? "animate-[shrink_3.5s_linear_forwards]" : ""
+            }`}
+            style={showLoginToast ? { animation: "shrink 3.5s linear forwards" } : {}}
+          />
+        </div>
+      </div>
+
       {/* Page Header Banner */}
       <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -504,7 +588,7 @@ export function IndividualProducts({ onNavigate }: IndividualProductsProps) {
 
                         <Button
                           className="w-full bg-[#B71C1C] hover:bg-[#8B1538] text-white font-semibold text-xs py-2 mt-auto"
-                          onClick={(e) => {
+                          onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
                             handleAddToCart(product);
                           }}

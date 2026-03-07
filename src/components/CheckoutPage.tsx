@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CreditCard,
   Truck,
@@ -14,14 +14,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Header } from "./Header";
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import useCart from "../hooks/useCart";
 
 interface CheckoutPageProps {
   onNavigate?: (page: string) => void;
@@ -32,6 +25,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [discountCode, setDiscountCode] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -44,25 +38,16 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
     address: "",
   });
 
-  // Mock cart data
-  const cartItems: CartItem[] = [
-    {
-      id: "1",
-      name: "Hộp Quà Phú Quý",
-      price: 1500000,
-      quantity: 1,
-      image: "🎁",
-    },
-  ];
+  const { items: cartItems, subTotal, isLoading: cartLoading, fetchCart, checkout } = useCart();
 
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  // Load cart khi vào trang checkout
+  useEffect(() => {
+    fetchCart();
+  }, []);
 
   const shippingFee = shippingMethod === "standard" ? 30000 : 50000;
-  const discount = 0; // Can be calculated based on discountCode
-  const total = subtotal + shippingFee - discount;
+  const discount = 0;
+  const total = subTotal + shippingFee - discount;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -71,14 +56,26 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
     }).format(amount);
   };
 
-  const handlePlaceOrder = () => {
-    console.log("Order placed:", {
-      formData,
-      shippingMethod,
-      paymentMethod,
-      total,
+  const handlePlaceOrder = async () => {
+    const shippingAddress = [
+      formData.address,
+      formData.ward,
+      formData.district,
+      formData.province,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const result = await checkout({
+      shippingAddress: shippingAddress || "Chưa nhập địa chỉ",
+      shippingPhone: formData.phone || "Chưa nhập SĐT",
+      voucherCode: discountCode || null,
+      note: null,
     });
-    alert("Đơn hàng của bạn đã được đặt thành công!");
+
+    if ((result as { meta?: { requestStatus?: string } })?.meta?.requestStatus === "fulfilled") {
+      setOrderSuccess(true);
+    }
   };
 
   return (
@@ -86,7 +83,24 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
       {/* Use Header from Homepage */}
       <Header cartCount={cartCount} onNavigate={onNavigate} />
 
-      {/* Main Content */}
+      {/* Order Success Screen */}
+      {orderSuccess && (
+        <div className="max-w-lg mx-auto px-6 py-20 text-center">
+          <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-6" />
+          <h2 className="text-3xl font-bold text-gray-900 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Đặt hàng thành công!
+          </h2>
+          <p className="text-gray-600 mb-8">Cảm ơn bạn đã mua hàng. Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.</p>
+          <Button
+            onClick={() => onNavigate && onNavigate("home")}
+            className="bg-[#B71C1C] hover:bg-[#8B1538] text-white font-bold px-8 py-3 rounded-lg"
+          >
+            Về trang chủ
+          </Button>
+        </div>
+      )}
+
+      {!orderSuccess && (
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Back Button */}
         <button
@@ -432,23 +446,31 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex items-center space-x-4">
                       <div className="relative">
-                        <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-4xl border border-gray-200">
-                          {item.image}
-                        </div>
+                        {item.displayImageUrl ? (
+                          <img
+                            src={item.displayImageUrl}
+                            alt={item.displayName ?? ""}
+                            className="w-20 h-20 rounded-lg object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-4xl border border-gray-200">
+                            🎁
+                          </div>
+                        )}
                         <span className="absolute -top-2 -right-2 w-6 h-6 bg-[#B71C1C] text-white text-xs font-bold rounded-full flex items-center justify-center">
                           {item.quantity}
                         </span>
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-gray-900">
-                          {item.name}
+                          {item.displayName}
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
-                          {formatCurrency(item.price)}
+                          {formatCurrency(item.unitPrice)}
                         </p>
                       </div>
                       <p className="font-bold text-gray-900">
-                        {formatCurrency(item.price * item.quantity)}
+                        {formatCurrency(item.totalPrice)}
                       </p>
                     </div>
                   ))}
@@ -481,7 +503,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                   <div className="flex justify-between text-gray-700">
                     <span>Tạm tính</span>
                     <span className="font-semibold">
-                      {formatCurrency(subtotal)}
+                      {formatCurrency(subTotal)}
                     </span>
                   </div>
                   <div className="flex justify-between text-gray-700">
@@ -519,9 +541,10 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                 {/* Place Order Button */}
                 <Button
                   onClick={handlePlaceOrder}
-                  className="w-full bg-[#B71C1C] hover:bg-[#8B1538] text-white font-bold py-4 rounded-lg text-lg transition-all transform hover:scale-[1.02]"
+                  disabled={cartLoading || cartItems.length === 0}
+                  className="w-full bg-[#B71C1C] hover:bg-[#8B1538] text-white font-bold py-4 rounded-lg text-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ĐẶT HÀNG NGAY
+                  {cartLoading ? "Đang xử lý..." : "ĐỞlT HÀNG NGAY"}
                 </Button>
 
                 {/* Trust Signals */}
@@ -556,6 +579,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

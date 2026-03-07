@@ -62,9 +62,9 @@ export default defineConfig({
     open: true,
     proxy: {
       "/api": {
-        target: "https://localhost:7124",
+        target: "https://prn232.onrender.com",
         changeOrigin: true,
-        secure: false, // bỏ qua SSL cert tự ký của .NET
+        secure: true,
       },
     },
   },

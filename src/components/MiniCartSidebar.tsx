@@ -1,15 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "./ui/button";
-
-interface CartItem {
-  id: string;
-  name: string;
-  variant: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import useCart from "../hooks/useCart";
 
 interface MiniCartSidebarProps {
   isOpen: boolean;
@@ -22,44 +14,14 @@ export function MiniCartSidebar({
   onClose,
   onNavigate,
 }: MiniCartSidebarProps) {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: "1",
-      name: "Hộp Quà Phú Quý 2025",
-      variant: "Màu Đỏ - Rượu Vang",
-      price: 1500000,
-      quantity: 1,
-      image:
-        "https://images.unsplash.com/photo-1761479267954-983e006443f7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
-    },
-    {
-      id: "2",
-      name: "Vang Đỏ Chile Nhập Khẩu",
-      variant: "750ml - Premium",
-      price: 500000,
-      quantity: 2,
-      image:
-        "https://images.unsplash.com/photo-1615212995098-3c2aebfff863?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
-    },
-    {
-      id: "3",
-      name: "Set Quà Tết An Khang",
-      variant: "Bánh Kẹo Cao Cấp - Hộp Gỗ",
-      price: 1200000,
-      quantity: 1,
-      image:
-        "https://images.unsplash.com/photo-1580364545822-71c817ec6c3f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
-    },
-    {
-      id: "4",
-      name: "Hamper Sang Trọng Deluxe",
-      variant: "Trái Cây & Rượu - Giỏ Tre",
-      price: 3200000,
-      quantity: 1,
-      image:
-        "https://images.unsplash.com/photo-1759563874833-d8f97cef9d32?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=200",
-    },
-  ]);
+  const { items: cartItems, subTotal, isLoading, fetchCart, updateItem, removeItem } = useCart();
+
+  // Fetch cart từ API khi sidebar mở lần đầu / mỗi khi mở
+  useEffect(() => {
+    if (isOpen) {
+      fetchCart();
+    }
+  }, [isOpen]);
 
   // Lock body scroll when sidebar is open
   useEffect(() => {
@@ -87,25 +49,16 @@ export function MiniCartSidebar({
     }).format(amount);
   };
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems((items) =>
-      items.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  const handleUpdateQuantity = (id: string, currentQty: number, delta: number) => {
+    const newQty = Math.max(1, currentQty + delta);
+    updateItem(id, newQty);
   };
 
-  const removeItem = (id: string) => {
-    setCartItems((items) => items.filter((item) => item.id !== id));
+  const handleRemoveItem = (id: string) => {
+    removeItem(id);
   };
 
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const total = subtotal;
+  const total = subTotal;
 
   const handleCheckout = () => {
     onClose();
@@ -151,7 +104,11 @@ export function MiniCartSidebar({
 
         {/* Product List - Scrollable */}
         <div className="flex-1 overflow-y-auto px-6 py-4 h-[calc(100vh-280px)]">
-          {cartItems.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#D4AF37] border-t-transparent" />
+            </div>
+          ) : cartItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <ShoppingBag className="h-16 w-16 text-gray-300 mb-4" />
               <p className="text-gray-500 text-lg">Giỏ hàng trống</p>
@@ -168,31 +125,39 @@ export function MiniCartSidebar({
                 >
                   {/* Product Image */}
                   <div className="flex-shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                    />
+                    {item.displayImageUrl ? (
+                      <img
+                        src={item.displayImageUrl}
+                        alt={item.displayName ?? ""}
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gradient-to-br from-[#FFFDF5] to-[#F5F5F5] flex items-center justify-center text-3xl">
+                        🎁
+                      </div>
+                    )}
                   </div>
 
                   {/* Product Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 text-sm mb-1 truncate">
-                      {item.name}
+                      {item.displayName}
                     </h3>
-                    <p className="text-xs text-gray-500 mb-2">{item.variant}</p>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {item.productSKU ?? item.giftBoxCode ?? item.itemType}
+                    </p>
                     <p
                       className="font-bold text-[#D4AF37] text-base"
                       style={{ fontFamily: "'Playfair Display', serif" }}
                     >
-                      {formatCurrency(item.price)}
+                      {formatCurrency(item.unitPrice)}
                     </p>
 
                     {/* Quantity Control */}
                     <div className="flex items-center gap-3 mt-3">
                       <div className="flex items-center border border-gray-300 rounded-lg">
                         <button
-                          onClick={() => updateQuantity(item.id, -1)}
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity, -1)}
                           className="p-1.5 hover:bg-gray-100 transition-colors"
                           aria-label="Giảm số lượng"
                         >
@@ -202,7 +167,7 @@ export function MiniCartSidebar({
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.id, 1)}
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity, 1)}
                           className="p-1.5 hover:bg-gray-100 transition-colors"
                           aria-label="Tăng số lượng"
                         >
@@ -212,7 +177,7 @@ export function MiniCartSidebar({
 
                       {/* Delete Button */}
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => handleRemoveItem(item.id)}
                         className="p-2 hover:bg-red-50 rounded-lg transition-colors group/delete ml-auto"
                         aria-label="Xóa sản phẩm"
                       >
@@ -233,7 +198,7 @@ export function MiniCartSidebar({
             <div className="flex justify-between text-gray-700">
               <span className="font-semibold">Tạm tính</span>
               <span className="font-semibold">
-                {formatCurrency(subtotal)}
+                {formatCurrency(subTotal)}
               </span>
             </div>
             <div className="flex justify-between items-center pt-3 border-t border-gray-200">

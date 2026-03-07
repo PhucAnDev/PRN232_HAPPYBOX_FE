@@ -1,84 +1,169 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ProductResponse } from "../../services/productService";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import * as cartService from "../../services/cartService";
+import type {
+  CartResponse,
+  AddToCartRequest,
+  CheckoutRequest,
+} from "../../services/cartService";
 
-// ====== Types ======
-export interface CartItem {
-  product: ProductResponse;
-  quantity: number;
-}
-
+// ====== State ======
 interface CartState {
-  items: CartItem[];
-  totalPrice: number;
-  totalItems: number;
+  cart: CartResponse | null;
+  isLoading: boolean;
+  error: string | null;
 }
-
-// ====== Helper tính lại tổng ======
-const recalculate = (items: CartItem[]) => ({
-  totalPrice: items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
-  totalItems: items.reduce((sum, i) => sum + i.quantity, 0),
-});
 
 const initialState: CartState = {
-  items: [],
-  totalPrice: 0,
-  totalItems: 0,
+  cart: null,
+  isLoading: false,
+  error: null,
 };
+
+// ====== Async Thunks ======
+
+export const fetchCart = createAsyncThunk("cart/fetch", async () => {
+  return await cartService.getCart();
+});
+
+export const addItemToCart = createAsyncThunk(
+  "cart/addItem",
+  async (req: AddToCartRequest) => {
+    return await cartService.addItemToCart(req);
+  },
+);
+
+export const updateCartItem = createAsyncThunk(
+  "cart/updateItem",
+  async ({ cartItemId, quantity }: { cartItemId: string; quantity: number }) => {
+    return await cartService.updateCartItem(cartItemId, { quantity });
+  },
+);
+
+export const removeCartItem = createAsyncThunk(
+  "cart/removeItem",
+  async (cartItemId: string) => {
+    await cartService.removeCartItem(cartItemId);
+    return cartItemId;
+  },
+);
+
+export const removeCartItems = createAsyncThunk(
+  "cart/removeItems",
+  async (cartItemIds: string[]) => {
+    await cartService.removeCartItems(cartItemIds);
+    return cartItemIds;
+  },
+);
+
+export const emptyCart = createAsyncThunk("cart/empty", async () => {
+  await cartService.clearCart();
+});
+
+export const checkoutCart = createAsyncThunk(
+  "cart/checkout",
+  async (req: CheckoutRequest) => {
+    return await cartService.checkout(req);
+  },
+);
 
 // ====== Slice ======
 const cartSlice = createSlice({
   name: "cart",
   initialState,
-  reducers: {
-    // Thêm sản phẩm vào giỏ
-    addToCart: (state, action: PayloadAction<ProductResponse>) => {
-      const existing = state.items.find(
-        (i) => i.product.id === action.payload.id,
-      );
-      if (existing) {
-        existing.quantity += 1;
-      } else {
-        state.items.push({ product: action.payload, quantity: 1 });
+  reducers: {},
+  extraReducers: (builder) => {
+    // fetchCart
+    builder
+      .addCase(fetchCart.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchCart.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.cart = action.payload;
+      })
+      .addCase(fetchCart.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message ?? "Lỗi tải giỏ hàng";
+      });
+
+    // addItemToCart
+    builder
+      .addCase(addItemToCart.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(addItemToCart.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.cart = action.payload;
+      })
+      .addCase(addItemToCart.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message ?? "Lỗi thêm vào giỏ hàng";
+      });
+
+    // updateCartItem
+    builder.addCase(updateCartItem.fulfilled, (state, action) => {
+      state.cart = action.payload;
+    });
+
+    // removeCartItem — xóa 1 item khỏi state cục bộ
+    builder.addCase(removeCartItem.fulfilled, (state, action) => {
+      if (state.cart) {
+        state.cart.items = state.cart.items.filter(
+          (i) => i.id !== action.payload,
+        );
+        state.cart.totalItems = state.cart.items.reduce(
+          (s, i) => s + i.quantity,
+          0,
+        );
+        state.cart.subTotal = state.cart.items.reduce(
+          (s, i) => s + i.totalPrice,
+          0,
+        );
       }
-      const totals = recalculate(state.items);
-      state.totalPrice = totals.totalPrice;
-      state.totalItems = totals.totalItems;
-    },
+    });
 
-    // Giảm số lượng (nếu = 0 thì xóa)
-    decreaseQuantity: (state, action: PayloadAction<string>) => {
-      const item = state.items.find((i) => i.product.id === action.payload);
-      if (item) {
-        if (item.quantity > 1) {
-          item.quantity -= 1;
-        } else {
-          state.items = state.items.filter(
-            (i) => i.product.id !== action.payload,
-          );
-        }
+    // removeCartItems — xóa nhiều items
+    builder.addCase(removeCartItems.fulfilled, (state, action) => {
+      if (state.cart) {
+        const ids = new Set(action.payload);
+        state.cart.items = state.cart.items.filter((i) => !ids.has(i.id));
+        state.cart.totalItems = state.cart.items.reduce(
+          (s, i) => s + i.quantity,
+          0,
+        );
+        state.cart.subTotal = state.cart.items.reduce(
+          (s, i) => s + i.totalPrice,
+          0,
+        );
       }
-      const totals = recalculate(state.items);
-      state.totalPrice = totals.totalPrice;
-      state.totalItems = totals.totalItems;
-    },
+    });
 
-    // Xóa 1 sản phẩm khỏi giỏ
-    removeFromCart: (state, action: PayloadAction<string>) => {
-      state.items = state.items.filter((i) => i.product.id !== action.payload);
-      const totals = recalculate(state.items);
-      state.totalPrice = totals.totalPrice;
-      state.totalItems = totals.totalItems;
-    },
+    // emptyCart
+    builder.addCase(emptyCart.fulfilled, (state) => {
+      if (state.cart) {
+        state.cart.items = [];
+        state.cart.totalItems = 0;
+        state.cart.subTotal = 0;
+      }
+    });
 
-    // Xóa toàn bộ giỏ hàng
-    clearCart: (state) => {
-      state.items = [];
-      state.totalPrice = 0;
-      state.totalItems = 0;
-    },
+    // checkoutCart
+    builder
+      .addCase(checkoutCart.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(checkoutCart.fulfilled, (state) => {
+        state.isLoading = false;
+        state.cart = null;
+      })
+      .addCase(checkoutCart.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message ?? "Lỗi đặt hàng";
+      });
   },
 });
 
-export const { addToCart, decreaseQuantity, removeFromCart, clearCart } =
-  cartSlice.actions;
 export default cartSlice.reducer;

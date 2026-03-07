@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5142/api",
+  baseURL: import.meta.env.VITE_API_URL || "https://prn232.onrender.com/api",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -38,7 +38,7 @@ api.interceptors.response.use(
 
         if (accessToken && refreshToken) {
           const res = await axios.post(
-            `${import.meta.env.VITE_API_URL || "http://localhost:5142/api"}/auth/refresh-token`,
+            `${import.meta.env.VITE_API_URL || "https://prn232.onrender.com/api"}/auth/refresh-token`,
             { accessToken, refreshToken },
           );
           const newToken = res.data.data.accessToken;

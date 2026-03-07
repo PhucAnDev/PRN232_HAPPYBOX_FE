@@ -1,38 +1,51 @@
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../store/store";
 import {
-  addToCart,
-  decreaseQuantity,
-  removeFromCart,
-  clearCart,
+  fetchCart,
+  addItemToCart,
+  updateCartItem,
+  removeCartItem,
+  removeCartItems,
+  emptyCart,
+  checkoutCart,
 } from "../store/slices/cartSlice";
-import type { ProductResponse } from "../services/productService";
+import type {
+  AddToCartRequest,
+  CheckoutRequest,
+} from "../services/cartService";
 
 // ====== useCart Hook ======
 const useCart = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items, totalPrice, totalItems } = useSelector(
+  const { cart, isLoading, error } = useSelector(
     (state: RootState) => state.cart,
   );
 
   return {
-    items,
-    totalPrice,
-    totalItems,
+    cart,
+    items: cart?.items ?? [],
+    totalItems: cart?.totalItems ?? 0,
+    subTotal: cart?.subTotal ?? 0,
+    isLoading,
+    error,
 
-    addToCart: (product: ProductResponse) => dispatch(addToCart(product)),
-    decreaseQuantity: (productId: string) =>
-      dispatch(decreaseQuantity(productId)),
-    removeFromCart: (productId: string) => dispatch(removeFromCart(productId)),
-    clearCart: () => dispatch(clearCart()),
+    fetchCart: () => dispatch(fetchCart()),
+    addItem: (req: AddToCartRequest) => dispatch(addItemToCart(req)),
+    updateItem: (cartItemId: string, quantity: number) =>
+      dispatch(updateCartItem({ cartItemId, quantity })),
+    removeItem: (cartItemId: string) => dispatch(removeCartItem(cartItemId)),
+    removeItems: (cartItemIds: string[]) =>
+      dispatch(removeCartItems(cartItemIds)),
+    emptyCart: () => dispatch(emptyCart()),
+    checkout: (req: CheckoutRequest) => dispatch(checkoutCart(req)),
 
     // Tiện ích: kiểm tra sản phẩm đã trong giỏ chưa
     isInCart: (productId: string) =>
-      items.some((i) => i.product.id === productId),
+      (cart?.items ?? []).some((i) => i.productId === productId),
 
     // Lấy số lượng của 1 sản phẩm cụ thể
     getQuantity: (productId: string) =>
-      items.find((i) => i.product.id === productId)?.quantity ?? 0,
+      (cart?.items ?? []).find((i) => i.productId === productId)?.quantity ?? 0,
   };
 };
 
