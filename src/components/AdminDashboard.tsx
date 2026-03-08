@@ -9,6 +9,7 @@ import { AdminSettings } from "./AdminSettings";
 import { CustomerManagementSplit } from "./CustomerManagementSplit";
 import { RevenueReport } from "./RevenueReport";
 import { VoucherManagement } from "./VoucherManagement";
+import { HampersManagement } from "./HampersManagement";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
@@ -28,6 +29,9 @@ import {
   LogOut,
   AlertTriangle,
   Tag,
+  Gift,
+  Box,
+  Sparkles,
 } from "lucide-react";
 import {
   LineChart,
@@ -50,6 +54,9 @@ interface AdminDashboardProps {
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [isProductsExpanded, setIsProductsExpanded] = useState(false);
+  const [activeProductSubmenu, setActiveProductSubmenu] = useState<string | null>(null);
   const [dashboardData, setDashboardData] =
     useState<DashboardSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -171,14 +178,38 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   };
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "products", label: "Sản Phẩm", icon: Package },
-    { id: "orders", label: "Đơn Hàng", icon: ShoppingCart },
-    { id: "customers", label: "Khách Hàng", icon: Users },
-    { id: "vouchers", label: "Mã Giảm Giá", icon: Tag },
-    { id: "reports", label: "Báo Cáo", icon: BarChart3 },
-    { id: "settings", label: "Cài Đặt", icon: Settings },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, hasSubmenu: false, children: null },
+    { id: "products", label: "Sản Phẩm", icon: Package, hasSubmenu: true, children: null },
+    { id: "orders", label: "Đơn Hàng", icon: ShoppingCart, hasSubmenu: false, children: null },
+    { id: "customers", label: "Khách Hàng", icon: Users, hasSubmenu: false, children: null },
+    { id: "vouchers", label: "Mã Giảm Giá", icon: Tag, hasSubmenu: false, children: null },
+    { id: "reports", label: "Báo Cáo", icon: BarChart3, hasSubmenu: false, children: null },
+    { id: "settings", label: "Cài Đặt", icon: Settings, hasSubmenu: false, children: null },
   ];
+
+  const productSubmenuItems = [
+    { id: "products-gift-box", label: "Giỏ Quà", icon: Gift },
+    { id: "products-individual", label: "Sản Phẩm Lẻ", icon: Box },
+    { id: "products-custom", label: "Sản Phẩm Thiết Kế", icon: Sparkles },
+  ];
+
+  const handleMenuClick = (menuId: string) => {
+    if (menuId === "products") {
+      setIsProductsExpanded(!isProductsExpanded);
+      if (!isProductsExpanded) {
+        setActiveMenu("products");
+      }
+    } else {
+      setActiveMenu(menuId);
+      setIsProductsExpanded(false);
+      setActiveProductSubmenu(null);
+    }
+  };
+
+  const handleSubmenuClick = (submenuId: string) => {
+    setActiveProductSubmenu(submenuId);
+    setActiveMenu(submenuId);
+  };
 
   return (
     <div className="flex h-screen bg-[#F5F5F5]">
@@ -198,20 +229,67 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <nav className="flex-1 py-6">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeMenu === item.id;
+            const isActive =
+              activeMenu === item.id ||
+              (item.id === "products" && isProductsExpanded && !activeProductSubmenu);
             return (
-              <button
-                key={item.id}
-                onClick={() => setActiveMenu(item.id)}
-                className={`w-full flex items-center px-6 py-3 text-left transition-all ${
-                  isActive
-                    ? "bg-[#D4AF37] text-white font-bold"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Icon className="h-5 w-5 mr-3" />
-                {item.label}
-              </button>
+              <div key={item.id}>
+                <button
+                  onClick={() => handleMenuClick(item.id)}
+                  className={`w-full flex items-center justify-between px-6 py-3 text-left transition-all ${
+                    isActive
+                      ? "bg-[#D4AF37] text-white font-bold"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <Icon className="h-5 w-5 mr-3" />
+                    {item.label}
+                  </div>
+                  {item.hasSubmenu && (
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-300 ${
+                        isProductsExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </button>
+
+                {/* Product Submenu with smooth animation */}
+                {item.id === "products" && (
+                  <div
+                    className="overflow-hidden transition-all duration-300 ease-in-out"
+                    style={{
+                      maxHeight: isProductsExpanded ? `${productSubmenuItems.length * 44}px` : "0px",
+                      opacity: isProductsExpanded ? 1 : 0,
+                    }}
+                  >
+                    {productSubmenuItems.map((subitem, index) => {
+                      const SubIcon = subitem.icon;
+                      const isSubActive = activeProductSubmenu === subitem.id;
+                      return (
+                        <button
+                          key={subitem.id}
+                          onClick={() => handleSubmenuClick(subitem.id)}
+                          className={`w-full flex items-center px-6 py-2.5 text-left transition-all duration-200 ${
+                            isSubActive
+                              ? "bg-[#D4AF37] text-white font-semibold"
+                              : "text-white/70 hover:bg-white/10 hover:text-white"
+                          }`}
+                          style={{
+                            transitionDelay: isProductsExpanded
+                              ? `${index * 50}ms`
+                              : "0ms",
+                          }}
+                        >
+                          <SubIcon className="h-4 w-4 mr-3" />
+                          <span className="text-sm">{subitem.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -256,8 +334,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         {/* Conditionally render content based on active menu */}
         {activeMenu === "orders" ? (
           <OrderManagement />
-        ) : activeMenu === "products" ? (
+        ) : activeMenu === "products-individual" ? (
           <ProductManagement />
+        ) : activeMenu === "products-gift-box" ? (
+          <HampersManagement />
+        ) : activeMenu === "products-custom" ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-lg">
+            Tính năng đang phát triển...
+          </div>
         ) : activeMenu === "customers" ? (
           <CustomerManagementSplit />
         ) : activeMenu === "vouchers" ? (
