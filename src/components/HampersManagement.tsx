@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import giftBoxService from "../services/giftBoxService";
 import type { GiftBoxResponse } from "../services/giftBoxService";
+import { setViewProduct } from "../services/productViewStore";
 import categoryService from "../services/categoryService";
 import productService from "../services/productService";
 import uploadService from "../services/uploadService";
@@ -113,7 +114,11 @@ function sortByDate(list: Hamper[]): Hamper[] {
 
 const ITEMS_PER_PAGE = 10;
 
-export function HampersManagement() {
+interface HampersManagementProps {
+  onNavigate?: (page: string) => void;
+}
+
+export function HampersManagement({ onNavigate }: HampersManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");

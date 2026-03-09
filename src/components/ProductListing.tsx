@@ -16,6 +16,7 @@ import { Button } from "./ui/button";
 import giftBoxService, { GiftBoxResponse } from "../services/giftBoxService";
 import useCart from "../hooks/useCart";
 import useAuth from "../hooks/useAuth";
+import { setViewProduct } from "../services/productViewStore";
 
 interface ProductListingProps {
   onNavigate?: (page: string) => void;
@@ -342,7 +343,10 @@ export function ProductListing({ onNavigate }: ProductListingProps) {
                       <div
                         key={box.id}
                         className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group cursor-pointer flex flex-col"
-                        onClick={() => onNavigate?.("product")}
+                        onClick={() => {
+                          setViewProduct({ id: box.id, type: "giftbox" });
+                          onNavigate?.("product");
+                        }}
                       >
                         {/* Image */}
                         <div className="relative aspect-square overflow-hidden bg-gray-100">

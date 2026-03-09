@@ -353,7 +353,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         ) : activeMenu === "products-individual" ? (
           <ProductManagement />
         ) : activeMenu === "products-gift-box" ? (
-          <HampersManagement />
+          <HampersManagement onNavigate={onNavigate} />
         ) : activeMenu === "products-custom" ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-lg">
             Tính năng đang phát triển...

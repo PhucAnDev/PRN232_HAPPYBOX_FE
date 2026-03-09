@@ -18,6 +18,7 @@ import categoryService, { CategoryResponse } from "../services/categoryService";
 import imageService from "../services/imageService";
 import useCart from "../hooks/useCart";
 import useAuth from "../hooks/useAuth";
+import { setViewProduct } from "../services/productViewStore";
 
 interface Product {
   id: string;
@@ -540,7 +541,10 @@ export function IndividualProducts({ onNavigate }: IndividualProductsProps) {
                     {/* Product Card */}
                     <div
                       key={product.id}
-                      onClick={() => onNavigate?.("product")}
+                      onClick={() => {
+                          setViewProduct({ id: product.id, type: "individual" });
+                          onNavigate?.("product");
+                        }}
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group cursor-pointer flex flex-col"
                     >
                       {/* Image Container */}
