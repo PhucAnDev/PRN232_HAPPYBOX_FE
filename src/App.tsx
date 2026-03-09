@@ -30,12 +30,16 @@ export default function App() {
   const { isLoggedIn, logout, user } = useAuth();
   const { totalItems } = useCart();
   const [currentPage, setCurrentPage] = useState(() => {
-    const saved = localStorage.getItem("currentPage");
-    // If admin page but not admin user, redirect to home
-    if (saved === "admin" && user?.roleName !== "Admin") {
-      return "home";
+    // Try URL hash first — supports reload-persistence and bookmarking
+    const hash = window.location.hash;
+    if (hash && hash.length > 1) {
+      const path = hash.slice(1); // e.g. "/admin/orders" or "/listing"
+      const page = path.startsWith("/") ? path.slice(1).split("/")[0] : path.split("/")[0];
+      const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password"];
+      if (page && validPages.includes(page)) return page;
     }
-    return saved || "home";
+    // Fallback to localStorage
+    return localStorage.getItem("currentPage") || "home";
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -60,8 +64,39 @@ export default function App() {
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
     localStorage.setItem("currentPage", page);
+    const newHash = page === "home" ? "#/" : `#/${page}`;
+    if (window.location.hash !== newHash) {
+      window.location.hash = newHash;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Set initial hash on first load if URL has no hash yet
+  useEffect(() => {
+    if (!window.location.hash || window.location.hash === "#") {
+      window.location.hash = currentPage === "home" ? "#/" : `#/${currentPage}`;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for browser back/forward button navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      let page = "home";
+      if (hash && hash.length > 1) {
+        const path = hash.slice(1);
+        const p = path.startsWith("/") ? path.slice(1).split("/")[0] : path.split("/")[0];
+        const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password"];
+        if (p && validPages.includes(p)) page = p;
+      }
+      setCurrentPage((prev) => {
+        if (prev !== page) localStorage.setItem("currentPage", page);
+        return page;
+      });
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Render different pages based on state
   if (currentPage === "login") {

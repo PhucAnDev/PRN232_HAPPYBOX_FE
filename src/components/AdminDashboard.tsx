@@ -53,10 +53,23 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { user, logout } = useAuth();
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+  const [activeMenu, setActiveMenu] = useState(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith("#/admin/")) {
+      const sub = hash.slice("#/admin/".length);
+      if (sub) return sub;
+    }
+    return "dashboard";
+  });
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  const [isProductsExpanded, setIsProductsExpanded] = useState(false);
-  const [activeProductSubmenu, setActiveProductSubmenu] = useState<string | null>(null);
+  const [isProductsExpanded, setIsProductsExpanded] = useState(() => {
+    return window.location.hash.startsWith("#/admin/products-");
+  });
+  const [activeProductSubmenu, setActiveProductSubmenu] = useState<string | null>(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith("#/admin/products-")) return hash.slice("#/admin/".length);
+    return null;
+  });
   const [dashboardData, setDashboardData] =
     useState<DashboardSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,17 +211,20 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       setIsProductsExpanded(!isProductsExpanded);
       if (!isProductsExpanded) {
         setActiveMenu("products");
+        window.location.hash = "#/admin/products";
       }
     } else {
       setActiveMenu(menuId);
       setIsProductsExpanded(false);
       setActiveProductSubmenu(null);
+      window.location.hash = menuId === "dashboard" ? "#/admin" : `#/admin/${menuId}`;
     }
   };
 
   const handleSubmenuClick = (submenuId: string) => {
     setActiveProductSubmenu(submenuId);
     setActiveMenu(submenuId);
+    window.location.hash = `#/admin/${submenuId}`;
   };
 
   return (

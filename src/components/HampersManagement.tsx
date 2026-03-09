@@ -105,10 +105,19 @@ function mapToHamper(g: GiftBoxResponse): Hamper {
   };
 }
 
+function sortByDate(list: Hamper[]): Hamper[] {
+  return [...list].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+const ITEMS_PER_PAGE = 10;
+
 export function HampersManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -161,7 +170,7 @@ export function HampersManagement() {
           productService.getAll(),
         ]);
         if (hampersRes.data.success) {
-          setHampers(hampersRes.data.data.map(mapToHamper));
+          setHampers(sortByDate(hampersRes.data.data.map(mapToHamper)));
         }
         if (categoriesRes.data.success) {
           setCategories(
@@ -207,6 +216,9 @@ export function HampersManagement() {
     });
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterCategory, filterStatus]);
+
   // Filter logic
   const filteredHampers = hampers.filter((hamper) => {
     const matchesSearch =
@@ -224,6 +236,12 @@ export function HampersManagement() {
 
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredHampers.length / ITEMS_PER_PAGE));
+  const paginatedHampers = filteredHampers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const handleToggleActive = async (id: string) => {
     const hamper = hampers.find((h) => h.id === id);
@@ -316,7 +334,7 @@ export function HampersManagement() {
         imageUrls: formData.images,
       });
       if (res.data.success) {
-        setHampers([mapToHamper(res.data.data), ...hampers]);
+        setHampers(sortByDate([mapToHamper(res.data.data), ...hampers]));
         setIsAddModalOpen(false);
       }
     } catch (err) {
@@ -346,9 +364,9 @@ export function HampersManagement() {
       });
       if (res.data.success) {
         setHampers(
-          hampers.map((h) =>
+          sortByDate(hampers.map((h) =>
             h.id === selectedHamper.id ? mapToHamper(res.data.data) : h
-          )
+          ))
         );
         setIsEditModalOpen(false);
       }
@@ -535,7 +553,7 @@ export function HampersManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredHampers.map((hamper) => (
+              {paginatedHampers.map((hamper) => (
                 <tr
                   key={hamper.id}
                   className="hover:bg-gray-50 transition-colors"
@@ -647,17 +665,58 @@ export function HampersManagement() {
             <p className="text-gray-500 text-lg">Không tìm thấy giỏ quà nào</p>
           </div>
         )}
+
+        {/* Pagination */}
+        {!loading && filteredHampers.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Hiển thị{" "}
+              <span className="font-semibold">
+                {Math.min(currentPage * ITEMS_PER_PAGE, filteredHampers.length)}
+              </span>{" "}
+              /{" "}
+              <span className="font-semibold">{filteredHampers.length}</span> sản phẩm
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                Trước
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Button
+                  key={page}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className={currentPage === page ? "bg-[#B71C1C] text-white border-[#B71C1C]" : ""}
+                >
+                  {page}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Modal */}
       {isAddModalOpen && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsAddModalOpen(false)}
         >
           <div
             className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] px-6 py-5 flex items-center justify-between sticky top-0 z-10 rounded-t-2xl">
               <h3
@@ -1121,11 +1180,9 @@ export function HampersManagement() {
       {isEditModalOpen && selectedHamper && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsEditModalOpen(false)}
         >
           <div
             className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] px-6 py-5 flex items-center justify-between sticky top-0 z-10 rounded-t-2xl">
               <h3
@@ -1585,11 +1642,9 @@ export function HampersManagement() {
       {isDetailModalOpen && selectedHamper && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setIsDetailModalOpen(false)}
         >
           <div
             className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] px-6 py-5 flex items-center justify-between sticky top-0 z-10 rounded-t-2xl">
               <h3
@@ -1895,11 +1950,9 @@ export function HampersManagement() {
       {isDeleteModalOpen && hamperToDelete && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
-          onClick={() => { setIsDeleteModalOpen(false); setHamperToDelete(null); }}
         >
           <div
             className="bg-white rounded-2xl max-w-md w-full shadow-2xl transform animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Icon and Title */}
             <div className="p-6 text-center">
