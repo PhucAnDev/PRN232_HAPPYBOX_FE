@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Calendar,
   Filter,
@@ -21,179 +21,60 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-
-interface DailyData {
-  date: string;
-  displayDate: string;
-  totalOrders: number;
-  successfulOrders: number;
-  cancelledOrders: number;
-  revenue: number;
-}
+import dashboardService, {
+  SalesTrendDto,
+  DashboardSummaryResponse,
+  OrderStatusChartDto,
+} from "../services/dashboardService";
 
 export function RevenueReport() {
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-01-05");
-  const [filteredData, setFilteredData] = useState<DailyData[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Complete mock data for the entire month (Jan 1 - Jan 15)
-  const allDailyData: DailyData[] = [
-    {
-      date: "2026-01-01",
-      displayDate: "01/01/2026",
-      totalOrders: 8,
-      successfulOrders: 7,
-      cancelledOrders: 1,
-      revenue: 28000000,
-    },
-    {
-      date: "2026-01-02",
-      displayDate: "02/01/2026",
-      totalOrders: 12,
-      successfulOrders: 11,
-      cancelledOrders: 1,
-      revenue: 35000000,
-    },
-    {
-      date: "2026-01-03",
-      displayDate: "03/01/2026",
-      totalOrders: 15,
-      successfulOrders: 14,
-      cancelledOrders: 1,
-      revenue: 42000000,
-    },
-    {
-      date: "2026-01-04",
-      displayDate: "04/01/2026",
-      totalOrders: 10,
-      successfulOrders: 9,
-      cancelledOrders: 1,
-      revenue: 31000000,
-    },
-    {
-      date: "2026-01-05",
-      displayDate: "05/01/2026",
-      totalOrders: 14,
-      successfulOrders: 13,
-      cancelledOrders: 1,
-      revenue: 38000000,
-    },
-    {
-      date: "2026-01-06",
-      displayDate: "06/01/2026",
-      totalOrders: 9,
-      successfulOrders: 8,
-      cancelledOrders: 1,
-      revenue: 29000000,
-    },
-    {
-      date: "2026-01-07",
-      displayDate: "07/01/2026",
-      totalOrders: 11,
-      successfulOrders: 10,
-      cancelledOrders: 1,
-      revenue: 34000000,
-    },
-    {
-      date: "2026-01-08",
-      displayDate: "08/01/2026",
-      totalOrders: 16,
-      successfulOrders: 15,
-      cancelledOrders: 1,
-      revenue: 45000000,
-    },
-    {
-      date: "2026-01-09",
-      displayDate: "09/01/2026",
-      totalOrders: 13,
-      successfulOrders: 12,
-      cancelledOrders: 1,
-      revenue: 37000000,
-    },
-    {
-      date: "2026-01-10",
-      displayDate: "10/01/2026",
-      totalOrders: 17,
-      successfulOrders: 16,
-      cancelledOrders: 1,
-      revenue: 48000000,
-    },
-    {
-      date: "2026-01-11",
-      displayDate: "11/01/2026",
-      totalOrders: 8,
-      successfulOrders: 7,
-      cancelledOrders: 1,
-      revenue: 27000000,
-    },
-    {
-      date: "2026-01-12",
-      displayDate: "12/01/2026",
-      totalOrders: 10,
-      successfulOrders: 9,
-      cancelledOrders: 1,
-      revenue: 32000000,
-    },
-    {
-      date: "2026-01-13",
-      displayDate: "13/01/2026",
-      totalOrders: 14,
-      successfulOrders: 13,
-      cancelledOrders: 1,
-      revenue: 40000000,
-    },
-    {
-      date: "2026-01-14",
-      displayDate: "14/01/2026",
-      totalOrders: 12,
-      successfulOrders: 11,
-      cancelledOrders: 1,
-      revenue: 36000000,
-    },
-    {
-      date: "2026-01-15",
-      displayDate: "15/01/2026",
-      totalOrders: 15,
-      successfulOrders: 14,
-      cancelledOrders: 1,
-      revenue: 43000000,
-    },
-  ];
+  // API states
+  const [salesTrend, setSalesTrend] = useState<SalesTrendDto[]>([]);
+  const [summaryData, setSummaryData] = useState<DashboardSummaryResponse | null>(null);
+  const [orderStatusData, setOrderStatusData] = useState<OrderStatusChartDto[]>([]);
 
-  // Filter data based on date range
-  const filterDataByDateRange = () => {
-    const filtered = allDailyData.filter((day) => {
-      const dayDate = new Date(day.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      return dayDate >= start && dayDate <= end;
-    });
-    setFilteredData(filtered);
+  const fetchData = async (start: string, end: string) => {
+    try {
+      setLoading(true);
+      const [trendRes, summaryRes, statusRes] = await Promise.all([
+        dashboardService.getSalesTrend(start, end),
+        dashboardService.getSummary(start, end),
+        dashboardService.getOrderStatus(start, end),
+      ]);
+      if (trendRes.data.success) setSalesTrend(trendRes.data.data);
+      if (summaryRes.data.success) setSummaryData(summaryRes.data.data);
+      if (statusRes.data.success) setOrderStatusData(statusRes.data.data);
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Initialize with default date range on mount
-  useState(() => {
-    filterDataByDateRange();
-  });
+  useEffect(() => {
+    fetchData(startDate, endDate);
+  }, []);
 
-  // Use filtered data or all data
-  const dailyData = filteredData.length > 0 ? filteredData : allDailyData.filter((day) => {
-    const dayDate = new Date(day.date);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    return dayDate >= start && dayDate <= end;
-  });
+  // Derived values from order-status API
+  const totalOrders = orderStatusData.reduce((sum, s) => sum + s.count, 0);
+  const successOrders = orderStatusData.find((s) => s.statusName === "Delivered")?.count ?? 0;
+  const cancelledOrders = orderStatusData.find((s) => s.statusName === "Cancelled")?.count ?? 0;
 
-  // Chart data
-  const chartData = dailyData.map((day) => ({
-    date: day.displayDate.slice(0, 5), // "01/01"
-    revenue: day.revenue / 1000000, // Convert to millions for better display
+  // Chart data from sales-trend API
+  const chartData = salesTrend.map((day) => ({
+    date: day.date.slice(0, 5), // "dd/MM"
+    revenue: day.revenue / 1000000,
   }));
 
-  // Calculate totals
-  const totalRevenue = dailyData.reduce((sum, day) => sum + day.revenue, 0);
-  const totalOrders = dailyData.reduce((sum, day) => sum + day.totalOrders, 0);
-  const totalProducts = 35; // Mock value
+  // Total revenue from summary API
+  const totalRevenue = summaryData?.totalRevenue ?? 0;
+
+  // totalProducts: not available from API yet — keep as derived from trend
+  const totalProducts = 35; // Mock — API chưa hỗ trợ
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN").format(amount) + "đ";
@@ -209,9 +90,7 @@ export function RevenueReport() {
   };
 
   const handleFilter = () => {
-    // Filter logic here
-    filterDataByDateRange();
-    console.log("Filtering from", startDate, "to", endDate);
+    fetchData(startDate, endDate);
   };
 
   const handleExport = () => {
@@ -318,7 +197,7 @@ export function RevenueReport() {
             className="text-4xl font-bold text-[#D4AF37]"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            {formatCurrency(totalRevenue)}
+            {loading ? "Đang tải..." : formatCurrency(totalRevenue)}
           </p>
           <p className="text-xs opacity-75 mt-2">
             So với kỳ trước: +5.000.000đ
@@ -340,11 +219,10 @@ export function RevenueReport() {
             className="text-4xl font-bold text-gray-900"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            {totalOrders}
+            {loading ? "..." : totalOrders}
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Thành công: {dailyData.reduce((sum, d) => sum + d.successfulOrders, 0)} | Hủy:{" "}
-            {dailyData.reduce((sum, d) => sum + d.cancelledOrders, 0)}
+            Thành công: {successOrders} | Hủy: {cancelledOrders}
           </p>
         </div>
 
@@ -366,7 +244,7 @@ export function RevenueReport() {
             {totalProducts}
           </p>
           <p className="text-xs text-gray-500 mt-2">
-            Trung bình: {(totalProducts / totalOrders).toFixed(1)} sp/đơn
+            Trung bình: {totalOrders > 0 ? (totalProducts / totalOrders).toFixed(1) : "0"} sp/đơn
           </p>
         </div>
       </div>
@@ -448,7 +326,7 @@ export function RevenueReport() {
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-gray-400" />
               <span className="text-sm font-semibold text-gray-700">
-                {dailyData.length} ngày
+                {salesTrend.length} ngày
               </span>
             </div>
           </div>
@@ -479,55 +357,67 @@ export function RevenueReport() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {dailyData.map((day) => (
-                <tr
-                  key={day.date}
-                  className="hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm font-bold text-gray-900">
-                        {day.displayDate}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-700 text-sm font-bold">
-                      {day.totalOrders}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-700 text-sm font-bold">
-                      {day.successfulOrders}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-700 text-sm font-bold">
-                      {day.cancelledOrders}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <span
-                      className="text-lg font-bold text-[#D4AF37]"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {formatCurrency(day.revenue)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <button
-                      onClick={() =>
-                        alert(`Xem chi tiết ngày ${day.displayDate}`)
-                      }
-                      className="p-2 text-gray-600 hover:text-[#B71C1C] hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center"
-                      title="Xem chi tiết"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    Đang tải dữ liệu...
                   </td>
                 </tr>
-              ))}
+              ) : salesTrend.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    Không có dữ liệu trong khoảng thời gian này.
+                  </td>
+                </tr>
+              ) : (
+                salesTrend.map((day) => (
+                  <tr
+                    key={day.date}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm font-bold text-gray-900">
+                          {day.date}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-700 text-sm font-bold">
+                        {day.orderCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                        {day.orderCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-100 text-red-700 text-sm font-bold">
+                        —
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <span
+                        className="text-lg font-bold text-[#D4AF37]"
+                        style={{ fontFamily: "'Playfair Display', serif" }}
+                      >
+                        {formatCurrency(day.revenue)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <button
+                        onClick={() => alert(`Xem chi tiết ngày ${day.date}`)}
+                        className="p-2 text-gray-600 hover:text-[#B71C1C] hover:bg-gray-100 rounded-lg transition-colors inline-flex items-center"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
 
               {/* Total Row */}
               <tr className="bg-gray-50 font-bold">
@@ -536,17 +426,17 @@ export function RevenueReport() {
                 </td>
                 <td className="px-6 py-4 text-center">
                   <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-200 text-blue-900 text-sm font-bold">
-                    {totalOrders}
+                    {salesTrend.reduce((sum, d) => sum + d.orderCount, 0)}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
                   <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-200 text-green-900 text-sm font-bold">
-                    {dailyData.reduce((sum, d) => sum + d.successfulOrders, 0)}
+                    {successOrders}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
                   <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-200 text-red-900 text-sm font-bold">
-                    {dailyData.reduce((sum, d) => sum + d.cancelledOrders, 0)}
+                    {cancelledOrders}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">

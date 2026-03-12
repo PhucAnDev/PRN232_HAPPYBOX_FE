@@ -16,6 +16,7 @@ import {
   CreditCard,
   Truck,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -27,6 +28,7 @@ import orderService, {
 } from "../services/orderService";
 import userService, { UserResponse } from "../services/userService";
 import productService from "../services/productService";
+import { CreateOrder } from "./CreateOrder";
 
 interface Order {
   id: string;
@@ -74,6 +76,8 @@ export function OrderManagement() {
   const [newStatus, setNewStatus] = useState<Order["orderStatus"]>("pending");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  const [showCreateOrder, setShowCreateOrder] = useState(false);
 
   // API data states
   const [loading, setLoading] = useState(true);
@@ -404,19 +408,39 @@ export function OrderManagement() {
     completed: orders.filter((o) => o.orderStatus === "completed").length,
   };
 
+  if (showCreateOrder) {
+    return (
+      <CreateOrder
+        onBack={() => {
+          setShowCreateOrder(false);
+          fetchOrders();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1
-          className="text-3xl font-bold text-gray-900 mb-2"
-          style={{ fontFamily: "'Playfair Display', serif" }}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1
+            className="text-3xl font-bold text-gray-900 mb-2"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Quản Lý Đơn Hàng
+          </h1>
+          <p className="text-gray-600">
+            Quản lý và theo dõi tất cả đơn hàng của khách hàng
+          </p>
+        </div>
+        <Button
+          className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold px-6 py-3 rounded-lg flex items-center gap-2 shadow-lg transition-all transform hover:scale-105"
+          onClick={() => setShowCreateOrder(true)}
         >
-          Quản Lý Đơn Hàng
-        </h1>
-        <p className="text-gray-600">
-          Quản lý và theo dõi tất cả đơn hàng của khách hàng
-        </p>
+          <Plus className="h-5 w-5" />
+          Tạo Đơn Hàng
+        </Button>
       </div>
 
       {/* Loading State */}

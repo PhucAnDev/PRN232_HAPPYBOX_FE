@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Edit3,
@@ -8,86 +8,86 @@ import {
   LogOut,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
+import useAuth from "../hooks/useAuth";
+import orderService, {
+  OrderResponse,
+  OrderStatus,
+  orderStatusLabels,
+} from "../services/orderService";
 
 interface OrderHistoryProps {
   onNavigate?: (page: string) => void;
   onLogout?: () => void;
 }
 
-type OrderStatus =
-  | "all"
-  | "to-pay"
-  | "to-ship"
-  | "completed"
-  | "cancelled";
-
-interface Order {
-  id: string;
-  status: "processing" | "completed" | "cancelled";
-  statusText: string;
-  statusColor: string;
-  productImage: string;
-  productName: string;
-  quantity: number;
-  price: string;
-  total: string;
-  cancelReason?: string;
-}
+type TabFilter = "all" | "to-pay" | "to-ship" | "completed" | "cancelled";
 
 export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
+  const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState("orders");
-  const [activeTab, setActiveTab] = useState<OrderStatus>("all");
+  const [activeTab, setActiveTab] = useState<TabFilter>("all");
+  const [orders, setOrders] = useState<OrderResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const orders: Order[] = [
-    {
-      id: "#ORD-2025-009",
-      status: "processing",
-      statusText: "Đang xử lý",
-      statusColor: "text-blue-600",
-      productImage: "https://images.unsplash.com/photo-1761479267954-983e006443f7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjByZWQlMjBnaWZ0JTIwYm94fGVufDF8fHx8MTc2ODQ4NzU0OXww&ixlib=rb-4.1.0&q=80&w=1080",
-      productName: "Hộp Quà Phú Quý",
-      quantity: 1,
-      price: "1.500.000đ",
-      total: "1.500.000đ",
-    },
-    {
-      id: "#ORD-2024-888",
-      status: "completed",
-      statusText: "Giao hàng thành công",
-      statusColor: "text-green-600",
-      productImage: "https://images.unsplash.com/photo-1610631787813-9eeb1a2386cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWQlMjB3aW5lJTIwYm90dGxlfGVufDF8fHx8MTc2ODQxMjkxN3ww&ixlib=rb-4.1.0&q=80&w=1080",
-      productName: "Rượu Vang Đỏ",
-      quantity: 2,
-      price: "1.000.000đ",
-      total: "2.000.000đ",
-    },
-    {
-      id: "#ORD-2024-777",
-      status: "cancelled",
-      statusText: "Đã hủy",
-      statusColor: "text-gray-500",
-      productImage: "https://images.unsplash.com/photo-1615485737643-406ce5bac81f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcmVtaXVtJTIwbnV0cyUyMGdpZnQlMjBib3h8ZW58MXx8fHwxNzY4NDg3OTc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      productName: "Hộp Hạt Dinh Dưỡng",
-      quantity: 1,
-      price: "800.000đ",
-      total: "800.000đ",
-      cancelReason: "Đã hủy bởi bạn",
-    },
-  ];
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const res = await orderService.getAll();
+        if (res.data.success) setOrders(res.data.data);
+      } catch {
+        setError("Không thể tải danh sách đơn hàng.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  // Map tab → OrderStatus values
+  const TAB_STATUS_MAP: Record<TabFilter, OrderStatus[] | null> = {
+    "all":       null,
+    "to-pay":    [OrderStatus.Pending],
+    "to-ship":   [OrderStatus.Confirmed, OrderStatus.Processing, OrderStatus.Shipping],
+    "completed": [OrderStatus.Delivered],
+    "cancelled": [OrderStatus.Cancelled, OrderStatus.Returned],
+  };
+
+  const filteredOrders = orders.filter((o) => {
+    const allowed = TAB_STATUS_MAP[activeTab];
+    if (!allowed) return true;
+    return allowed.includes(o.currentStatus);
+  });
+
+  const STATUS_TEXT_COLORS: Record<number, string> = {
+    [OrderStatus.Pending]:    "text-yellow-600",
+    [OrderStatus.Confirmed]:  "text-blue-600",
+    [OrderStatus.Processing]: "text-blue-600",
+    [OrderStatus.Shipping]:   "text-indigo-600",
+    [OrderStatus.Delivered]:  "text-green-600",
+    [OrderStatus.Cancelled]:  "text-gray-500",
+    [OrderStatus.Returned]:   "text-gray-500",
+  };
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("vi-VN").format(amount) + "đ";
 
   const tabs = [
-    { id: "all", label: "Tất cả" },
-    { id: "to-pay", label: "Chờ thanh toán" },
-    { id: "to-ship", label: "Đang vận chuyển" },
+    { id: "all",       label: "Tất cả" },
+    { id: "to-pay",    label: "Chờ thanh toán" },
+    { id: "to-ship",   label: "Đang vận chuyển" },
     { id: "completed", label: "Đã giao" },
     { id: "cancelled", label: "Đã hủy" },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     onLogout?.();
     onNavigate?.("home");
   };
+
+  const displayName = user?.fullName || user?.username || "Khách";
 
   return (
     <div className="min-h-screen bg-[#F9F9F9] py-12">
@@ -112,7 +112,7 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
                     Xin chào,
                   </h3>
                   <p className="text-base font-semibold text-gray-800 mb-2">
-                    Nguyễn Văn An
+                    {displayName}
                   </p>
 
                   {/* Edit Link */}
@@ -227,7 +227,13 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
 
               {/* Order Cards List */}
               <div className="space-y-4">
-                {orders.map((order) => (
+                {loading && (
+                  <div className="text-center py-16 text-gray-400">Đang tải đơn hàng...</div>
+                )}
+                {error && (
+                  <div className="text-center py-8 text-red-500">{error}</div>
+                )}
+                {!loading && !error && filteredOrders.map((order) => (
                   <div
                     key={order.id}
                     className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
@@ -239,67 +245,62 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
                           Shop: Tetdenroi.vn
                         </span>
                         <div className="w-px h-4 bg-gray-300"></div>
-                        <span className={`text-sm font-semibold ${order.statusColor}`}>
-                          {order.statusText}
+                        <span className={`text-sm font-semibold ${STATUS_TEXT_COLORS[order.currentStatus] ?? "text-gray-600"}`}>
+                          {orderStatusLabels[order.currentStatus] ?? order.currentStatus}
                         </span>
                       </div>
                       <span className="text-sm text-gray-600 font-medium">
-                        {order.id}
+                        #{order.orderNumber}
                       </span>
                     </div>
 
-                    {/* Product Row */}
-                    <div className="p-6">
-                      <div className="flex items-center gap-4">
-                        {/* Product Thumbnail */}
-                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                          <ImageWithFallback
-                            src={order.productImage}
-                            alt={order.productName}
-                            className="w-full h-full object-cover"
-                          />
+                    {/* Product Rows */}
+                    <div className="p-6 space-y-4">
+                      {order.orderDetails.map((detail) => (
+                        <div key={detail.id} className="flex items-center gap-4">
+                          {/* Thumbnail placeholder */}
+                          <div className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-100 flex items-center justify-center text-3xl">
+                            {detail.productImage
+                              ? <img src={detail.productImage} alt={detail.productName ?? ""} className="w-full h-full object-cover" />
+                              : "🎁"}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 mb-1">
+                              {detail.productName || "Sản phẩm"}
+                            </h3>
+                            <p className="text-sm text-gray-600">x{detail.quantity}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-gray-900">
+                              {formatCurrency(detail.unitPrice)}
+                            </p>
+                          </div>
                         </div>
-
-                        {/* Product Info */}
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">
-                            {order.productName}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            x{order.quantity}
-                          </p>
-                        </div>
-
-                        {/* Price */}
-                        <div className="text-right">
-                          <p className="font-bold text-gray-900">{order.price}</p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
 
                     {/* Card Footer */}
                     <div className="bg-gray-50 px-6 py-4 flex items-center justify-between">
                       <div>
-                        {order.cancelReason && (
-                          <p className="text-sm text-gray-500">
-                            {order.cancelReason}
-                          </p>
+                        {order.currentStatus === OrderStatus.Cancelled && (
+                          <p className="text-sm text-gray-500">Đã hủy bời bạn</p>
                         )}
+                        <p className="text-xs text-gray-400">
+                          {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-4">
-                        {/* Total */}
                         <div className="text-right mr-4">
-                          <p className="text-sm text-gray-600 mb-1">
-                            Thành tiền:
-                          </p>
+                          <p className="text-sm text-gray-600 mb-1">Thành tiền:</p>
                           <p className="text-xl font-bold text-[#B71C1C]">
-                            {order.total}
+                            {formatCurrency(order.finalAmount)}
                           </p>
                         </div>
 
-                        {/* Action Buttons */}
-                        {order.status === "processing" && (
+                        {(order.currentStatus === OrderStatus.Pending ||
+                          order.currentStatus === OrderStatus.Confirmed ||
+                          order.currentStatus === OrderStatus.Processing) && (
                           <Button
                             variant="outline"
                             className="border-[#B71C1C] text-[#B71C1C] hover:bg-[#B71C1C] hover:text-white transition-colors font-semibold"
@@ -308,17 +309,12 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
                           </Button>
                         )}
 
-                        {order.status === "completed" && (
+                        {order.currentStatus === OrderStatus.Delivered && (
                           <div className="flex gap-2">
-                            <Button
-                              className="bg-[#D4AF37] hover:bg-[#B8962E] text-white font-semibold"
-                            >
+                            <Button className="bg-[#D4AF37] hover:bg-[#B8962E] text-white font-semibold">
                               Mua Lại
                             </Button>
-                            <Button
-                              variant="outline"
-                              className="border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold"
-                            >
+                            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold">
                               Đánh giá
                             </Button>
                           </div>
@@ -329,8 +325,8 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
                 ))}
               </div>
 
-              {/* Empty State (if needed) */}
-              {orders.length === 0 && (
+              {/* Empty State */}
+              {!loading && !error && filteredOrders.length === 0 && (
                 <div className="text-center py-16">
                   <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">

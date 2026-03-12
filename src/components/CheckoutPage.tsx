@@ -15,30 +15,90 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Header } from "./Header";
 import useCart from "../hooks/useCart";
+import { OrderSuccess } from "./OrderSuccess";
+import type { OrderData } from "./OrderSuccess";
+
+interface VNProvince { code: number; name: string; }
+interface VNDistrict { code: number; name: string; }
+interface VNWard    { code: number; name: string; }
 
 interface CheckoutPageProps {
   onNavigate?: (page: string) => void;
   cartCount?: number;
+  isLoggedIn?: boolean;
 }
 
-export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
+export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: CheckoutPageProps) {
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [discountCode, setDiscountCode] = useState("");
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  // Vietnam address data
+  const [provinces, setProvinces] = useState<VNProvince[]>([]);
+  const [districts, setDistricts] = useState<VNDistrict[]>([]);
+  const [wards, setWards]         = useState<VNWard[]>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+
+  // Form state — lưu code (dùng để fetch API) và name (dùng để gửi BE)
+  const [selectedProvince, setSelectedProvince] = useState<VNProvince | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<VNDistrict | null>(null);
+  const [selectedWard,     setSelectedWard]     = useState<VNWard | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
     email: "",
-    province: "",
-    district: "",
-    ward: "",
     address: "",
   });
 
   const { items: cartItems, subTotal, isLoading: cartLoading, fetchCart, checkout } = useCart();
+
+  // Load tất cả tỉnh/thành phố
+  useEffect(() => {
+    fetch("https://provinces.open-api.vn/api/p/")
+      .then((r) => r.json())
+      .then((data: VNProvince[]) => setProvinces(data))
+      .catch(() => setProvinces([]));
+  }, []);
+
+  // Khi chọn tỉnh → load quận/huyện
+  const handleProvinceChange = async (code: string) => {
+    const prov = provinces.find((p) => String(p.code) === code) || null;
+    setSelectedProvince(prov);
+    setSelectedDistrict(null);
+    setSelectedWard(null);
+    setDistricts([]);
+    setWards([]);
+    if (!prov) return;
+    setAddressLoading(true);
+    try {
+      const res = await fetch(`https://provinces.open-api.vn/api/p/${prov.code}?depth=2`);
+      const data = await res.json();
+      setDistricts(data.districts || []);
+    } catch { setDistricts([]); }
+    finally { setAddressLoading(false); }
+  };
+
+  // Khi chọn quận/huyện → load phường/xã
+  const handleDistrictChange = async (code: string) => {
+    const dist = districts.find((d) => String(d.code) === code) || null;
+    setSelectedDistrict(dist);
+    setSelectedWard(null);
+    setWards([]);
+    if (!dist) return;
+    setAddressLoading(true);
+    try {
+      const res = await fetch(`https://provinces.open-api.vn/api/d/${dist.code}?depth=2`);
+      const data = await res.json();
+      setWards(data.wards || []);
+    } catch { setWards([]); }
+    finally { setAddressLoading(false); }
+  };
 
   // Load cart khi vào trang checkout
   useEffect(() => {
@@ -56,48 +116,71 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
     }).format(amount);
   };
 
+  // Map payment method FE value -> BE value
+  const PAYMENT_METHOD_MAP: Record<string, string> = {
+    cod: "COD",
+    momo: "MoMo",
+    bank: "BankTransfer",
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.fullName.trim()) errors.fullName = "Vui lòng nhập họ và tên";
+    if (!formData.phone.trim()) errors.phone = "Vui lòng nhập số điện thoại";
+    else if (!/^(0|\+84)[0-9]{8,10}$/.test(formData.phone.trim()))
+      errors.phone = "Số điện thoại không hợp lệ";
+    if (!formData.email.trim()) errors.email = "Vui lòng nhập email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim()))
+      errors.email = "Email không hợp lệ";
+    if (!selectedProvince) errors.province = "Vui lòng chọn tỉnh/thành phố";
+    if (!selectedDistrict) errors.district = "Vui lòng chọn quận/huyện";
+    if (!selectedWard)     errors.ward     = "Vui lòng chọn phường/xã";
+    if (!formData.address.trim()) errors.address = "Vui lòng nhập số nhà, tên đường";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handlePlaceOrder = async () => {
+    setOrderError(null);
+    if (!validateForm()) return;
+
     const shippingAddress = [
-      formData.address,
-      formData.ward,
-      formData.district,
-      formData.province,
+      formData.address.trim(),
+      selectedWard?.name,
+      selectedDistrict?.name,
+      selectedProvince?.name,
     ]
       .filter(Boolean)
       .join(", ");
 
-    const result = await checkout({
-      shippingAddress: shippingAddress || "Chưa nhập địa chỉ",
-      shippingPhone: formData.phone || "Chưa nhập SĐT",
-      voucherCode: discountCode || null,
-      note: null,
-    });
+    try {
+      const result = await checkout({
+        shippingAddress,
+        shippingPhone: formData.phone.trim(),
+        paymentMethod: PAYMENT_METHOD_MAP[paymentMethod] ?? "COD",
+        voucherCode: discountCode.trim() || null,
+        note: null,
+      });
 
-    if ((result as { meta?: { requestStatus?: string } })?.meta?.requestStatus === "fulfilled") {
-      setOrderSuccess(true);
+      if ((result as { meta?: { requestStatus?: string } })?.meta?.requestStatus === "fulfilled") {
+        const payload = (result as { payload?: OrderData }).payload ?? null;
+        setOrderData(payload);
+        setOrderSuccess(true);
+      }
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setOrderError(message || "Đặt hàng thất bại. Vui lòng thử lại.");
     }
   };
 
   return (
     <div className="min-h-screen bg-[#FFFDF5]">
       {/* Use Header from Homepage */}
-      <Header cartCount={cartCount} onNavigate={onNavigate} />
+      <Header cartCount={cartCount} onNavigate={onNavigate} isLoggedIn={isLoggedIn} />
 
       {/* Order Success Screen */}
       {orderSuccess && (
-        <div className="max-w-lg mx-auto px-6 py-20 text-center">
-          <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-6" />
-          <h2 className="text-3xl font-bold text-gray-900 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Đặt hàng thành công!
-          </h2>
-          <p className="text-gray-600 mb-8">Cảm ơn bạn đã mua hàng. Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.</p>
-          <Button
-            onClick={() => onNavigate && onNavigate("home")}
-            className="bg-[#B71C1C] hover:bg-[#8B1538] text-white font-bold px-8 py-3 rounded-lg"
-          >
-            Về trang chủ
-          </Button>
-        </div>
+        <OrderSuccess orderData={orderData} onNavigate={onNavigate!} />
       )}
 
       {!orderSuccess && (
@@ -137,8 +220,9 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, fullName: e.target.value })
                     }
-                    className="w-full border-gray-300 rounded-lg py-3"
+                    className={`w-full border-gray-300 rounded-lg py-3 ${formErrors.fullName ? "border-red-500" : ""}`}
                   />
+                  {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
                 </div>
 
                 {/* Phone & Email */}
@@ -154,8 +238,9 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, phone: e.target.value })
                       }
-                      className="w-full border-gray-300 rounded-lg py-3"
+                      className={`w-full border-gray-300 rounded-lg py-3 ${formErrors.phone ? "border-red-500" : ""}`}
                     />
+                    {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -168,63 +253,78 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className="w-full border-gray-300 rounded-lg py-3"
+                      className={`w-full border-gray-300 rounded-lg py-3 ${formErrors.email ? "border-red-500" : ""}`}
                     />
+                    {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
                   </div>
                 </div>
 
                 {/* Address Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Tỉnh/Thành phố */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Tỉnh/Thành phố <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.province}
-                      onChange={(e) =>
-                        setFormData({ ...formData, province: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+                      value={selectedProvince ? String(selectedProvince.code) : ""}
+                      onChange={(e) => handleProvinceChange(e.target.value)}
+                      disabled={provinces.length === 0}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 ${formErrors.province ? "border-red-500" : "border-gray-300"}`}
                     >
-                      <option value="">Chọn Tỉnh/TP</option>
-                      <option value="hcm">TP. Hồ Chí Minh</option>
-                      <option value="hn">Hà Nội</option>
-                      <option value="dn">Đà Nẵng</option>
+                      <option value="">
+                        {provinces.length === 0 ? "Đang tải..." : "Chọn Tỉnh/TP"}
+                      </option>
+                      {provinces.map((p) => (
+                        <option key={p.code} value={String(p.code)}>{p.name}</option>
+                      ))}
                     </select>
+                    {formErrors.province && <p className="text-red-500 text-xs mt-1">{formErrors.province}</p>}
                   </div>
+
+                  {/* Quận/Huyện */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Quận/Huyện <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.district}
-                      onChange={(e) =>
-                        setFormData({ ...formData, district: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+                      value={selectedDistrict ? String(selectedDistrict.code) : ""}
+                      onChange={(e) => handleDistrictChange(e.target.value)}
+                      disabled={!selectedProvince || addressLoading}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 ${formErrors.district ? "border-red-500" : "border-gray-300"}`}
                     >
-                      <option value="">Chọn Quận/Huyện</option>
-                      <option value="q1">Quận 1</option>
-                      <option value="q3">Quận 3</option>
-                      <option value="pn">Phú Nhuận</option>
+                      <option value="">
+                        {addressLoading ? "Đang tải..." : !selectedProvince ? "Chọn Tỉnh/TP trước" : "Chọn Quận/Huyện"}
+                      </option>
+                      {districts.map((d) => (
+                        <option key={d.code} value={String(d.code)}>{d.name}</option>
+                      ))}
                     </select>
+                    {formErrors.district && <p className="text-red-500 text-xs mt-1">{formErrors.district}</p>}
                   </div>
+
+                  {/* Phường/Xã */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Phường/Xã <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={formData.ward}
-                      onChange={(e) =>
-                        setFormData({ ...formData, ward: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+                      value={selectedWard ? String(selectedWard.code) : ""}
+                      onChange={(e) => {
+                        const ward = wards.find((w) => String(w.code) === e.target.value) || null;
+                        setSelectedWard(ward);
+                      }}
+                      disabled={!selectedDistrict || addressLoading}
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400 ${formErrors.ward ? "border-red-500" : "border-gray-300"}`}
                     >
-                      <option value="">Chọn Phường/Xã</option>
-                      <option value="p1">Phường Bến Nghé</option>
-                      <option value="p2">Phường Bến Thành</option>
-                      <option value="p3">Phường Nguyễn Thái Bình</option>
+                      <option value="">
+                        {addressLoading ? "Đang tải..." : !selectedDistrict ? "Chọn Quận/Huyện trước" : "Chọn Phường/Xã"}
+                      </option>
+                      {wards.map((w) => (
+                        <option key={w.code} value={String(w.code)}>{w.name}</option>
+                      ))}
                     </select>
+                    {formErrors.ward && <p className="text-red-500 text-xs mt-1">{formErrors.ward}</p>}
                   </div>
                 </div>
 
@@ -240,8 +340,9 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, address: e.target.value })
                     }
-                    className="w-full border-gray-300 rounded-lg py-3"
+                    className={`w-full border-gray-300 rounded-lg py-3 ${formErrors.address ? "border-red-500" : ""}`}
                   />
+                  {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
                 </div>
               </div>
             </div>
@@ -537,6 +638,13 @@ export function CheckoutPage({ onNavigate, cartCount = 1 }: CheckoutPageProps) {
                     {formatCurrency(total)}
                   </span>
                 </div>
+
+                {/* Order Error */}
+                {orderError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600 text-sm font-semibold">{orderError}</p>
+                  </div>
+                )}
 
                 {/* Place Order Button */}
                 <Button

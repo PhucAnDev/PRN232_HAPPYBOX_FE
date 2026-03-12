@@ -58,15 +58,17 @@ export interface OrderResponse {
 }
 
 export interface CreateOrderDetailRequest {
-  productId: string;
+  productId?: string;  // one of productId or giftBoxId must be set
+  giftBoxId?: string;
   quantity: number;
-  unitPrice: number;
+  price: number;
 }
 
 export interface CreateOrderRequest {
   userId: string;
+  shippingPhone: string;
   note?: string;
-  paymentMethod: string; // "COD" or "VNPAY", "MOMO", etc.
+  paymentMethod: string; // "COD" | "VNPAY" | "MOMO"
   voucherId?: string;
   shippingAddress: string;
   orderDetails: CreateOrderDetailRequest[];

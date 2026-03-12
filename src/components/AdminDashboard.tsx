@@ -2,6 +2,9 @@
 import { OrderManagement } from "./OrderManagement";
 import dashboardService, {
   DashboardSummaryResponse,
+  SalesTrendDto,
+  OrderStatusChartDto,
+  RecentOrderDto,
 } from "../services/dashboardService";
 import { ProductManagement } from "./ProductManagement";
 import { CustomerManagement } from "./CustomerManagement";
@@ -72,6 +75,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   });
   const [dashboardData, setDashboardData] =
     useState<DashboardSummaryResponse | null>(null);
+  const [salesTrend, setSalesTrend] = useState<SalesTrendDto[]>([]);
+  const [orderStatusData, setOrderStatusData] = useState<OrderStatusChartDto[]>([]);
+  const [recentOrdersApi, setRecentOrdersApi] = useState<RecentOrderDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch dashboard data on mount
@@ -85,10 +91,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           .toISOString()
           .split("T")[0];
 
-        const response = await dashboardService.getSummary(startDate, endDate);
-        if (response.data.success) {
-          setDashboardData(response.data.data);
-        }
+        const [summaryRes, trendRes, statusRes, recentRes] = await Promise.all([
+          dashboardService.getSummary(startDate, endDate),
+          dashboardService.getSalesTrend(startDate, endDate),
+          dashboardService.getOrderStatus(startDate, endDate),
+          dashboardService.getRecentOrders(5),
+        ]);
+
+        if (summaryRes.data.success) setDashboardData(summaryRes.data.data);
+        if (trendRes.data.success) setSalesTrend(trendRes.data.data);
+        if (statusRes.data.success) setOrderStatusData(statusRes.data.data);
+        if (recentRes.data.success) setRecentOrdersApi(recentRes.data.data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -101,79 +114,42 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     }
   }, [activeMenu]);
 
-  // Mock data for revenue chart
-  const revenueData = [
-    { name: "T2", revenue: 45000000 },
-    { name: "T3", revenue: 52000000 },
-    { name: "T4", revenue: 48000000 },
-    { name: "T5", revenue: 61000000 },
-    { name: "T6", revenue: 55000000 },
-    { name: "T7", revenue: 67000000 },
-    { name: "CN", revenue: 73000000 },
-  ];
+  // Map order status to Vietnamese label and color for pie chart
+  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    Pending:        { label: "Chờ xử lý",    color: "#D4AF37" },
+    Confirmed:      { label: "Đã xác nhận",  color: "#8B5CF6" },
+    Processing:     { label: "Đang xử lý",   color: "#3B82F6" },
+    Shipped:        { label: "Đang giao",    color: "#06B6D4" },
+    OutForDelivery: { label: "Đang giao",    color: "#06B6D4" },
+    Delivered:      { label: "Đã giao",      color: "#B71C1C" },
+    Cancelled:      { label: "Đã hủy",       color: "#EF4444" },
+    Returned:       { label: "Trả hàng",     color: "#6B7280" },
+  };
+  const FALLBACK_COLORS = ["#B71C1C", "#D4AF37", "#8B1538", "#C19A6B", "#3B82F6", "#6B7280"];
 
-  // Mock data for category sales
-  const categoryData = [
-    { name: "Hampers Cao Cấp", value: 45, color: "#B71C1C" },
-    { name: "Rượu Vang", value: 25, color: "#D4AF37" },
-    { name: "Trà & Cafe", value: 15, color: "#8B1538" },
-    { name: "Bánh Kẹo", value: 15, color: "#C19A6B" },
-  ];
-
-  // Mock data for recent orders
-  const recentOrders = [
-    {
-      id: "ORD-2601-001",
-      customer: "Nguyễn Văn An",
-      amount: 4500000,
-      status: "pending",
-      date: "15/01/2026",
-    },
-    {
-      id: "ORD-2601-002",
-      customer: "Trần Thị Bình",
-      amount: 8900000,
-      status: "shipping",
-      date: "15/01/2026",
-    },
-    {
-      id: "ORD-2601-003",
-      customer: "Công ty TNHH ABC",
-      amount: 25000000,
-      status: "done",
-      date: "14/01/2026",
-    },
-    {
-      id: "ORD-2601-004",
-      customer: "Lê Minh Châu",
-      amount: 6700000,
-      status: "shipping",
-      date: "14/01/2026",
-    },
-    {
-      id: "ORD-2601-005",
-      customer: "Phạm Quốc Dũng",
-      amount: 3200000,
-      status: "pending",
-      date: "14/01/2026",
-    },
-  ];
+  const orderStatusChartData = orderStatusData.map((item, idx) => ({
+    name: STATUS_MAP[item.statusName]?.label || item.statusName,
+    value: item.count,
+    color: STATUS_MAP[item.statusName]?.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
+  }));
 
   const getStatusBadge = (status: string) => {
-    const badges = {
-      pending: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-800",
-        label: "Chờ xử lý",
-      },
-      shipping: {
-        bg: "bg-blue-100",
-        text: "text-blue-800",
-        label: "Đang giao",
-      },
-      done: { bg: "bg-green-100", text: "text-green-800", label: "Hoàn thành" },
+    const badges: Record<string, { bg: string; text: string; label: string }> = {
+      // Legacy mock keys
+      pending:        { bg: "bg-yellow-100", text: "text-yellow-800", label: "Chờ xử lý" },
+      shipping:       { bg: "bg-blue-100",   text: "text-blue-800",   label: "Đang giao" },
+      done:           { bg: "bg-green-100",  text: "text-green-800",  label: "Hoàn thành" },
+      // API status strings
+      Pending:        { bg: "bg-yellow-100", text: "text-yellow-800", label: "Chờ xử lý" },
+      Confirmed:      { bg: "bg-indigo-100", text: "text-indigo-800", label: "Đã xác nhận" },
+      Processing:     { bg: "bg-purple-100", text: "text-purple-800", label: "Đang xử lý" },
+      Shipped:        { bg: "bg-blue-100",   text: "text-blue-800",   label: "Đang giao" },
+      OutForDelivery: { bg: "bg-cyan-100",   text: "text-cyan-800",   label: "Đang giao" },
+      Delivered:      { bg: "bg-green-100",  text: "text-green-800",  label: "Hoàn thành" },
+      Cancelled:      { bg: "bg-red-100",    text: "text-red-800",    label: "Đã hủy" },
+      Returned:       { bg: "bg-gray-100",   text: "text-gray-800",   label: "Trả hàng" },
     };
-    const badge = badges[status as keyof typeof badges];
+    const badge = badges[status] || { bg: "bg-gray-100", text: "text-gray-800", label: status };
     return (
       <span
         className={`px-3 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}
@@ -526,12 +502,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     Doanh Thu Theo Thời Gian
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={revenueData}>
+                    <LineChart data={salesTrend}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis
-                        dataKey="name"
+                        dataKey="date"
                         stroke="#6b7280"
-                        style={{ fontSize: "12px" }}
+                        style={{ fontSize: "11px" }}
+                        interval={Math.ceil(salesTrend.length / 7) - 1}
                       />
                       <YAxis
                         stroke="#6b7280"
@@ -568,12 +545,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     className="text-xl font-bold text-gray-900 mb-6"
                     style={{ fontFamily: "'Playfair Display', serif" }}
                   >
-                    Doanh Thu Theo Danh Mục
+                    Trạng Thái Đơn Hàng
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={categoryData}
+                        data={orderStatusChartData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -584,11 +561,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {categoryData.map((entry, index) => (
+                        {orderStatusChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(value: number) => [`${value} đơn`, ""]} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -629,45 +606,53 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {recentOrders.map((order) => (
-                        <tr
-                          key={order.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm font-semibold text-gray-900">
-                              {order.id}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-700">
-                              {order.customer}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">
-                              {order.date}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(order.amount)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getStatusBadge(order.status)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-[#B71C1C] border-[#B71C1C] hover:bg-[#B71C1C] hover:text-white"
-                            >
-                              Chi Tiết
-                            </Button>
+                      {recentOrdersApi.length === 0 && !loading ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                            Chưa có đơn hàng nào.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        recentOrdersApi.map((order) => (
+                          <tr
+                            key={order.orderId}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {order.orderNumber}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-700">
+                                {order.customerName}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-600">
+                                {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {formatCurrency(order.finalAmount)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {getStatusBadge(order.status)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[#B71C1C] border-[#B71C1C] hover:bg-[#B71C1C] hover:text-white"
+                              >
+                                Chi Tiết
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

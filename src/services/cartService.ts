@@ -47,6 +47,7 @@ export interface UpdateCartItemRequest {
 export interface CheckoutRequest {
   shippingAddress: string;
   shippingPhone: string;
+  paymentMethod?: string | null; // "COD" | "MoMo" | "BankTransfer"
   voucherCode?: string | null;
   note?: string | null;
   selectedItemIds?: string[] | null;

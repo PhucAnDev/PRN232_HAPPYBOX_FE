@@ -25,6 +25,7 @@ import { ResetPassword } from "./components/ResetPassword";
 import { ChatBot } from "./components/ChatBot";
 import useAuth from "./hooks/useAuth";
 import useCart from "./hooks/useCart";
+import { Toaster } from "sonner";
 
 export default function App() {
   const { isLoggedIn, logout, user } = useAuth();
@@ -42,6 +43,7 @@ export default function App() {
     return localStorage.getItem("currentPage") || "home";
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
 
   // Load Google Fonts
   useEffect(() => {
@@ -62,13 +64,17 @@ export default function App() {
   const handleAddToCart = () => {};
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page);
-    localStorage.setItem("currentPage", page);
-    const newHash = page === "home" ? "#/" : `#/${page}`;
-    if (window.location.hash !== newHash) {
-      window.location.hash = newHash;
-    }
+    setPageLoading(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      setCurrentPage(page);
+      localStorage.setItem("currentPage", page);
+      const newHash = page === "home" ? "#/" : `#/${page}`;
+      if (window.location.hash !== newHash) {
+        window.location.hash = newHash;
+      }
+      setPageLoading(false);
+    }, 400);
   };
 
   // Set initial hash on first load if URL has no hash yet
@@ -98,317 +104,189 @@ export default function App() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
-  // Render different pages based on state
-  if (currentPage === "login") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <LoginRegister onNavigate={handleNavigate} onLoginSuccess={() => {}} />
-        <ChatBot />
-      </div>
-    );
-  }
+  const renderContent = () => {
+    if (currentPage === "login") {
+      return (
+        <>
+          <LoginRegister onNavigate={handleNavigate} onLoginSuccess={() => {}} />
+          <ChatBot />
+        </>
+      );
+    }
 
-  if (currentPage === "product") {
+    if (currentPage === "product") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <ProductDetail onNavigate={handleNavigate} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "listing") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <ProductListing onNavigate={handleNavigate} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "individual-products") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <IndividualProducts onNavigate={handleNavigate} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "custom-builder") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <CustomGiftBuilder onNavigate={handleNavigate} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "b2b") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <B2BLanding  />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "tracking") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <OrderTracking />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "admin") {
+      return <AdminDashboard onNavigate={handleNavigate} />;
+    }
+
+    if (currentPage === "checkout") {
+      return (
+        <>
+          <CheckoutPage onNavigate={handleNavigate} cartCount={totalItems} isLoggedIn={isLoggedIn} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "profile") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <UserProfile onLogout={logout} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "order-history") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <OrderHistory onNavigate={handleNavigate} onLogout={logout} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "change-password") {
+      return (
+        <>
+          <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+          <ChangePassword onNavigate={handleNavigate} onLogout={logout} />
+          <Footer />
+          <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "forgot-password") {
+      return (
+        <>
+          <ForgotPassword onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "verify-otp") {
+      return (
+        <>
+          <VerifyOTP onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
+    if (currentPage === "reset-password") {
+      return (
+        <>
+          <ResetPassword onNavigate={handleNavigate} />
+          <ChatBot />
+        </>
+      );
+    }
+
     return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <ProductDetail onNavigate={handleNavigate} />
+      <>
+        <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
+        <HeroSection />
+        <ValueProposition />
+        <CorporateSection onNavigate={handleNavigate} />
+        <CategoryGrid />
+        <BestSellers onAddToCart={handleAddToCart} />
         <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
+        <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
         <ChatBot />
-      </div>
+      </>
     );
-  }
-
-  if (currentPage === "listing") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <ProductListing onNavigate={handleNavigate} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "individual-products") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <IndividualProducts onNavigate={handleNavigate} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "custom-builder") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <CustomGiftBuilder onNavigate={handleNavigate} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "b2b") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <B2BLanding onNavigate={handleNavigate} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "tracking") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <OrderTracking />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "admin") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <AdminDashboard onNavigate={handleNavigate} />
-      </div>
-    );
-  }
-
-  if (currentPage === "checkout") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <CheckoutPage onNavigate={handleNavigate} cartCount={totalItems} />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "profile") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <UserProfile onNavigate={handleNavigate} onLogout={logout} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "order-history") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <OrderHistory onNavigate={handleNavigate} onLogout={logout} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "change-password") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <Header
-          cartCount={totalItems}
-          onNavigate={handleNavigate}
-          onCartClick={() => setIsCartOpen(true)}
-          isLoggedIn={isLoggedIn}
-        />
-        <ChangePassword onNavigate={handleNavigate} onLogout={logout} />
-        <Footer />
-        <MiniCartSidebar
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          onNavigate={handleNavigate}
-        />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "forgot-password") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <ForgotPassword onNavigate={handleNavigate} />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "verify-otp") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <VerifyOTP onNavigate={handleNavigate} />
-        <ChatBot />
-      </div>
-    );
-  }
-
-  if (currentPage === "reset-password") {
-    return (
-      <div
-        className="min-h-screen bg-white"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
-        <ResetPassword onNavigate={handleNavigate} />
-        <ChatBot />
-      </div>
-    );
-  }
+  };
 
   return (
-    <div
-      className="min-h-screen bg-white"
-      style={{ fontFamily: "'Montserrat', sans-serif" }}
-    >
-      <Header
-        cartCount={totalItems}
-        onNavigate={handleNavigate}
-        onCartClick={() => setIsCartOpen(true)}
-        isLoggedIn={isLoggedIn}
-      />
-      <HeroSection />
-      <ValueProposition />
-      <CorporateSection onNavigate={handleNavigate} />
-      <CategoryGrid />
-      <BestSellers onAddToCart={handleAddToCart} />
-      <Footer />
-      <MiniCartSidebar
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onNavigate={handleNavigate}
-      />
-      <ChatBot />
+    <div className="min-h-screen bg-white" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <Toaster position="top-right" richColors />
+      {/* {pageLoading && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#F9F9F9]">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#B71C1C] mb-4"></div>
+          <p className="text-gray-500 text-sm tracking-wide">Đang tải...</p>
+        </div>
+      )} */}
+      {renderContent()}
     </div>
   );
 }
