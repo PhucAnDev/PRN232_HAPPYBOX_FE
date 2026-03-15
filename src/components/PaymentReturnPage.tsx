@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle, XCircle, Loader2, Home, ClipboardList } from "lucide-react";
 import { Button } from "./ui/button";
 import api from "../services/api";
+import { clearCart } from "../services/cartService";
 
 interface PaymentReturnPageProps {
   onNavigate?: (page: string) => void;
@@ -40,6 +41,8 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
           if (response.data.data.resultCode === 0) {
             setStatus("success");
             sessionStorage.removeItem("momoOrderId");
+            // Xóa cart sau khi thanh toán thành công
+            try { await clearCart(); } catch { /* bỏ qua nếu lỗi */ }
           } else {
             setStatus("failed");
           }
