@@ -10,11 +10,14 @@ import {
   Building2,
   Wallet,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import api from "../services/api";
 import { Header } from "./Header";
 import useCart from "../hooks/useCart";
+import useAuth from "../hooks/useAuth";
 import { OrderSuccess } from "./OrderSuccess";
 import type { OrderData } from "./OrderSuccess";
 
@@ -36,6 +39,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [isPlacingMomo, setIsPlacingMomo] = useState(false);
 
   // Vietnam address data
   const [provinces, setProvinces] = useState<VNProvince[]>([]);
@@ -57,6 +61,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
   });
 
   const { items: cartItems, subTotal, isLoading: cartLoading, fetchCart, checkout } = useCart();
+  const { user } = useAuth();
 
   // Load tất cả tỉnh/thành phố
   useEffect(() => {
@@ -153,6 +158,47 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
       .filter(Boolean)
       .join(", ");
 
+    // ── MoMo flow ──────────────────────────────────────────────
+    if (paymentMethod === "momo") {
+      setIsPlacingMomo(true);
+      try {
+        const orderDetails = cartItems.map((item) => ({
+          productId: item.productId ?? null,
+          giftBoxId: item.giftBoxId ?? null,
+          quantity: item.quantity,
+          price: item.unitPrice,
+        }));
+
+        const response = await api.post<{
+          success: boolean;
+          message: string;
+          data: { orderId: string; payUrl: string };
+        }>("/Payment/momo/create-order", {
+          userId: user?.id,
+          note: null,
+          paymentMethod: "MOMO",
+          voucherId: null,
+          shippingPhone: formData.phone.trim(),
+          shippingAddress,
+          orderDetails,
+        });
+
+        if (response.data.success && response.data.data?.payUrl) {
+          sessionStorage.setItem("momoOrderId", response.data.data.orderId);
+          window.location.href = response.data.data.payUrl;
+        } else {
+          setOrderError(response.data.message || "Tạo thanh toán MoMo thất bại.");
+        }
+      } catch (err: unknown) {
+        const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setOrderError(message || "Tạo thanh toán MoMo thất bại. Vui lòng thử lại.");
+      } finally {
+        setIsPlacingMomo(false);
+      }
+      return;
+    }
+
+    // ── COD / BankTransfer flow ─────────────────────────────────
     try {
       const result = await checkout({
         shippingAddress,
@@ -649,10 +695,19 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
                 {/* Place Order Button */}
                 <Button
                   onClick={handlePlaceOrder}
-                  disabled={cartLoading || cartItems.length === 0}
+                  disabled={cartLoading || cartItems.length === 0 || isPlacingMomo}
                   className="w-full bg-[#B71C1C] hover:bg-[#8B1538] text-white font-bold py-4 rounded-lg text-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cartLoading ? "Đang xử lý..." : "ĐỞlT HÀNG NGAY"}
+                  {isPlacingMomo ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Đang tạo thanh toán MoMo...
+                    </span>
+                  ) : cartLoading ? (
+                    "Đang xử lý..."
+                  ) : (
+                    "ĐẶT HÀNG NGAY"
+                  )}
                 </Button>
 
                 {/* Trust Signals */}

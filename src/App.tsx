@@ -22,6 +22,7 @@ import { ChangePassword } from "./components/ChangePassword";
 import { ForgotPassword } from "./components/ForgotPassword";
 import { VerifyOTP } from "./components/VerifyOTP";
 import { ResetPassword } from "./components/ResetPassword";
+import { PaymentReturnPage } from "./components/PaymentReturnPage";
 import { ChatBot } from "./components/ChatBot";
 import useAuth from "./hooks/useAuth";
 import useCart from "./hooks/useCart";
@@ -31,12 +32,18 @@ export default function App() {
   const { isLoggedIn, logout, user } = useAuth();
   const { totalItems } = useCart();
   const [currentPage, setCurrentPage] = useState(() => {
+    // Detect MoMo return redirect (MoMo appends resultCode + requestId as query params)
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("resultCode") && params.has("requestId")) {
+      return "payment-return";
+    }
+
     // Try URL hash first — supports reload-persistence and bookmarking
     const hash = window.location.hash;
     if (hash && hash.length > 1) {
       const path = hash.slice(1); // e.g. "/admin/orders" or "/listing"
       const page = path.startsWith("/") ? path.slice(1).split("/")[0] : path.split("/")[0];
-      const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password"];
+      const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password", "payment-return"];
       if (page && validPages.includes(page)) return page;
     }
     // Fallback to localStorage
@@ -92,7 +99,7 @@ export default function App() {
       if (hash && hash.length > 1) {
         const path = hash.slice(1);
         const p = path.startsWith("/") ? path.slice(1).split("/")[0] : path.split("/")[0];
-        const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password"];
+        const validPages = ["home", "login", "product", "listing", "individual-products", "custom-builder", "b2b", "tracking", "admin", "checkout", "profile", "order-history", "change-password", "forgot-password", "verify-otp", "reset-password", "payment-return"];
         if (p && validPages.includes(p)) page = p;
       }
       setCurrentPage((prev) => {
@@ -197,6 +204,10 @@ export default function App() {
           <ChatBot />
         </>
       );
+    }
+
+    if (currentPage === "payment-return") {
+      return <PaymentReturnPage onNavigate={handleNavigate} />;
     }
 
     if (currentPage === "profile") {
