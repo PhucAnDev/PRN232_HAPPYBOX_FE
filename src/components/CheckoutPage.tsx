@@ -60,7 +60,7 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
     address: "",
   });
 
-  const { items: cartItems, subTotal, isLoading: cartLoading, fetchCart, checkout } = useCart();
+  const { items: cartItems, subTotal, isLoading: cartLoading, fetchCart, checkout, emptyCart } = useCart();
   const { user } = useAuth();
 
   // Load tất cả tỉnh/thành phố
@@ -184,12 +184,16 @@ export function CheckoutPage({ onNavigate, cartCount = 1, isLoggedIn = false }: 
         });
 
         if (response.data.success && response.data.data?.payUrl) {
+          // ✅ FIX: Clear cart BEFORE redirect to MoMo
+          await emptyCart();
           sessionStorage.setItem("momoOrderId", response.data.data.orderId);
           window.location.href = response.data.data.payUrl;
         } else {
           setOrderError(response.data.message || "Tạo thanh toán MoMo thất bại.");
         }
       } catch (err: unknown) {
+        // ✅ FIX: Clear sessionStorage on error
+        sessionStorage.removeItem("momoOrderId");
         const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
         setOrderError(message || "Tạo thanh toán MoMo thất bại. Vui lòng thử lại.");
       } finally {

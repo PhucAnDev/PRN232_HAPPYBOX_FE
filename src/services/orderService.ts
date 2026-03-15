@@ -14,12 +14,11 @@ export enum OrderStatus {
 // ====== Types (khớp với Backend DTOs) ======
 export interface OrderDetailResponse {
   id: string;
-  productId: string;
+  productId: string | null;
+  giftBoxId: string | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  productName?: string; // Extended - from Product join
-  productImage?: string; // Extended
 }
 
 export interface OrderHistoryResponse {

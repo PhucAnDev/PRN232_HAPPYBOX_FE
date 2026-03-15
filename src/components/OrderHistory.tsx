@@ -269,7 +269,7 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as OrderStatus)}
+                      onClick={() => setActiveTab(tab.id as TabFilter)}
                       className={`pb-3 font-semibold transition-all relative ${
                         activeTab === tab.id
                           ? "text-[#B71C1C]"

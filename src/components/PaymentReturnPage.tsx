@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 import { CheckCircle, XCircle, Loader2, Home, ClipboardList } from "lucide-react";
 import { Button } from "./ui/button";
 import api from "../services/api";
-import { clearCart } from "../services/cartService";
+import { emptyCart } from "../store/slices/cartSlice";
+import type { AppDispatch } from "../store/store";
+import type { OrderData } from "./OrderSuccess";
+import { OrderSuccess } from "./OrderSuccess";
 
 interface PaymentReturnPageProps {
   onNavigate?: (page: string) => void;
@@ -19,8 +23,10 @@ interface PaymentStatusData {
 }
 
 export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
+  const dispatch = useDispatch<AppDispatch>();
   const [status, setStatus] = useState<Status>("loading");
   const [paymentData, setPaymentData] = useState<PaymentStatusData | null>(null);
+  const [orderData, setOrderData] = useState<OrderData | null>(null);
 
   useEffect(() => {
     const verify = async () => {
@@ -41,21 +47,39 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
           if (response.data.data.resultCode === 0) {
             setStatus("success");
             sessionStorage.removeItem("momoOrderId");
-            // Xóa cart sau khi thanh toán thành công
-            try { await clearCart(); } catch { /* bỏ qua nếu lỗi */ }
+
+            // ✅ FIX: Fetch order details to display full order info
+            try {
+              const orderRes = await api.get<{ success: boolean; data: OrderData }>(
+                `/Order/${storedOrderId}`
+              );
+              if (orderRes.data.success && orderRes.data.data) {
+                setOrderData(orderRes.data.data);
+              }
+            } catch {
+              // If order fetch fails, still show payment success
+              console.warn("Failed to fetch order details");
+            }
+
+            // Xóa cart qua Redux để đồng bộ store (badge header cập nhật đúng)
+            try { await dispatch(emptyCart()); } catch { /* bỏ qua nếu lỗi */ }
           } else {
+            // Xóa orderId khi thất bại để tránh verify lại lần sau
+            sessionStorage.removeItem("momoOrderId");
             setStatus("failed");
           }
         } else {
+          sessionStorage.removeItem("momoOrderId");
           setStatus("failed");
         }
       } catch {
+        sessionStorage.removeItem("momoOrderId");
         setStatus("failed");
       }
     };
 
     verify();
-  }, []);
+  }, [dispatch]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -73,6 +97,12 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
   }
 
   if (status === "success") {
+    // If we have full order data, show OrderSuccess component
+    if (orderData) {
+      return <OrderSuccess orderData={orderData} onNavigate={onNavigate} />;
+    }
+
+    // Fallback if order fetch failed - show payment success info
     return (
       <div className="min-h-screen bg-[#FFFDF5] flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center border border-gray-100">

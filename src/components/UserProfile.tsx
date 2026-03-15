@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import type { RootState } from "../store/store";
+import useAuth from "../hooks/useAuth";
 import {
   User,
   Edit3,
@@ -33,6 +36,9 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
+  const { user, logout, fetchProfile } = useAuth();
+  const profile = useSelector((state: RootState) => state.auth.profile);
+
   const [activeSection, setActiveSection] = useState(() => {
     const saved = sessionStorage.getItem("profileSection");
     if (saved) {
@@ -41,15 +47,30 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
     }
     return "account";
   });
-  const [fullName, setFullName] = useState("Nguyễn Văn An");
-  const [email, setEmail] = useState("an.nguyen@email.com");
-  const [phone, setPhone] = useState("0909 123 456");
-  const [gender, setGender] = useState("Nam");
-  const [day, setDay] = useState("15");
-  const [month, setMonth] = useState("03");
-  const [year, setYear] = useState("1990");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [gender, setGender] = useState("");
+  const [day, setDay] = useState("");
+  const [month, setMonth] = useState("");
+  const [year, setYear] = useState("");
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedBasket, setSelectedBasket] = useState<any>(null);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.fullName ?? "");
+      setEmail(profile.email ?? "");
+      setPhone(profile.phone ?? "");
+    } else if (user) {
+      setFullName(user.fullName ?? "");
+      setEmail(user.email ?? "");
+    }
+  }, [profile, user]);
 
   // Mock data for saved gift baskets
   const savedGiftBaskets = [
@@ -172,7 +193,8 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
     toast.success("Thông tin đã được cp nhật thành công!");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     onLogout?.();
     onNavigate?.("home");
   };
@@ -235,7 +257,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                     Xin chào,
                   </h3>
                   <p className="text-base font-semibold text-gray-800 mb-2">
-                    Nguyễn Văn An
+                    {user?.fullName || user?.username || "Khách"}
                   </p>
 
                   {/* Edit Link */}
@@ -358,7 +380,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                         </label>
                         <Input
                           type="text"
-                          value="nguyenvanan"
+                          value={profile?.username ?? user?.username ?? ""}
                           disabled
                           className="bg-gray-50 text-gray-500 cursor-not-allowed border-gray-200"
                         />
