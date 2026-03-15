@@ -203,7 +203,7 @@ export default function App() {
       return (
         <>
           <Header cartCount={totalItems} onNavigate={handleNavigate} onCartClick={() => setIsCartOpen(true)} isLoggedIn={isLoggedIn} />
-          <UserProfile onLogout={logout} />
+          <UserProfile onNavigate={handleNavigate} onLogout={logout} />
           <Footer />
           <MiniCartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onNavigate={handleNavigate} />
           <ChatBot />

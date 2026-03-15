@@ -13,6 +13,7 @@ import { CustomerManagementSplit } from "./CustomerManagementSplit";
 import { RevenueReport } from "./RevenueReport";
 import { VoucherManagement } from "./VoucherManagement";
 import { HampersManagement } from "./HampersManagement";
+import { CustomGiftManagement } from "./CustomGiftManagement";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
@@ -221,9 +222,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <nav className="flex-1 py-6">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              activeMenu === item.id ||
-              (item.id === "products" && isProductsExpanded && !activeProductSubmenu);
+            const isActive = activeMenu === item.id;
             return (
               <div key={item.id}>
                 <button
@@ -250,11 +249,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 {/* Product Submenu with smooth animation */}
                 {item.id === "products" && (
                   <div
-                    className="overflow-hidden transition-all duration-300 ease-in-out"
-                    style={{
-                      maxHeight: isProductsExpanded ? `${productSubmenuItems.length * 44}px` : "0px",
-                      opacity: isProductsExpanded ? 1 : 0,
-                    }}
+                    className={`bg-white/5 overflow-hidden transition-all duration-300 ease-in-out ${
+                      isProductsExpanded
+                        ? "max-h-40 opacity-100"
+                        : "max-h-0 opacity-0"
+                    }`}
                   >
                     {productSubmenuItems.map((subitem, index) => {
                       const SubIcon = subitem.icon;
@@ -263,9 +262,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                         <button
                           key={subitem.id}
                           onClick={() => handleSubmenuClick(subitem.id)}
-                          className={`w-full flex items-center px-6 py-2.5 text-left transition-all duration-200 ${
+                          className={`w-full flex items-center pl-14 pr-6 py-2.5 text-left transition-all duration-200 ${
                             isSubActive
-                              ? "bg-[#D4AF37] text-white font-semibold"
+                              ? "bg-[#D4AF37]/80 text-white font-semibold"
                               : "text-white/70 hover:bg-white/10 hover:text-white"
                           }`}
                           style={{
@@ -331,9 +330,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         ) : activeMenu === "products-gift-box" ? (
           <HampersManagement onNavigate={onNavigate} />
         ) : activeMenu === "products-custom" ? (
-          <div className="flex items-center justify-center h-full text-gray-400 text-lg">
-            Tính năng đang phát triển...
-          </div>
+          <CustomGiftManagement />
         ) : activeMenu === "customers" ? (
           <CustomerManagementSplit />
         ) : activeMenu === "vouchers" ? (

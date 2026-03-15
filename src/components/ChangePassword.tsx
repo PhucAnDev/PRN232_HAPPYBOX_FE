@@ -8,6 +8,7 @@ import {
   LogOut,
   Eye,
   EyeOff,
+  Gift,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -113,6 +114,7 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
                 <button
                   onClick={() => {
                     setActiveSection("account");
+                    sessionStorage.removeItem("profileSection");
                     onNavigate?.("profile");
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
@@ -150,6 +152,22 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
                 >
                   <MapPin className="w-5 h-5" />
                   <span>Sổ địa chỉ</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveSection("giftbaskets");
+                    sessionStorage.setItem("profileSection", "giftbaskets");
+                    onNavigate?.("profile");
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                    activeSection === "giftbaskets"
+                      ? "bg-red-50 text-[#B71C1C] border-l-4 border-[#B71C1C] font-semibold"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <Gift className="w-5 h-5" />
+                  <span>Giỏ quà của bạn</span>
                 </button>
 
                 <button

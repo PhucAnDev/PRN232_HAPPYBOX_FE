@@ -137,12 +137,13 @@ export function ChatBot() {
       {/* Chat Window */}
       {isOpen && (
         <div 
-          className="w-[400px] h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+          className="w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
           style={{
             position: 'fixed',
             bottom: '96px',
             right: '24px',
-            zIndex: 50
+            zIndex: 50,
+            height: '600px'
           }}
         >
           {/* Header */}
