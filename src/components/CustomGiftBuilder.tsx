@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ChevronRight, Check, X, Plus, ChevronLeft, Sparkles, Minus, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { useProducts } from "../hooks/useProduct";
+import api from "../services/api";
 
 interface CustomGiftBuilderProps {
   onNavigate?: (page: string) => void;
@@ -41,6 +43,11 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [generatedGiftImage, setGeneratedGiftImage] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmedGiftBoxId, setConfirmedGiftBoxId] = useState<string | null>(null);
+  const [showConfirmSuccess, setShowConfirmSuccess] = useState(false);
+
+  const { products: apiProducts, loading: productsLoading } = useProducts();
 
   const steps = [
     { number: 1, title: "Chọn Hộp/Giỏ", description: "Choose Packaging" },
@@ -79,16 +86,18 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   }
 ]
 
-  const products: Product[] = [
-    { id: "wine-1", name: "Rượu Vang Đỏ Cabernet", price: 850000, image: "https://images.unsplash.com/photo-1610631787813-9eeb1a2386cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Rượu Vang" },
-    { id: "nuts-1", name: "Hạt Macca Úc (500g)", price: 250000, image: "https://images.unsplash.com/photo-1670941949362-4cd2b509158f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Hạt" },
-    { id: "tea-1", name: "Trà Oolong Cao Cấp", price: 300000, image: "https://images.unsplash.com/photo-1765153743376-6a87b3c3288b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Trà" },
-    { id: "chocolate-1", name: "Socola Lindt Excellence", price: 180000, image: "https://images.unsplash.com/photo-1767510533183-425731f088a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Bánh Kẹo" },
-    { id: "wine-2", name: "Rượu Vang Trắng Chardonnay", price: 920000, image: "https://images.unsplash.com/photo-1534409385199-b60aa1bcffa0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Rư���u Vang" },
-    { id: "nuts-2", name: "Hạt Điều Rang (500g)", price: 190000, image: "https://images.unsplash.com/photo-1594900689460-fdad3599342c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Hạt" },
-    { id: "honey-1", name: "Mật Ong Rừng Organic", price: 280000, image: "https://images.unsplash.com/photo-1645549826194-1956802d83c2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Mứt" },
-    { id: "tea-2", name: "Trà Sen Hồ Tây", price: 380000, image: "https://images.unsplash.com/photo-1765153743376-6a87b3c3288b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600", category: "Trà" }
-  ];
+  const products: Product[] = apiProducts
+    .filter((p) => p.isActive)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      image:
+        p.images?.find((img) => img.isMain)?.url ??
+        p.images?.[0]?.url ??
+        "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&h=400&fit=crop",
+      category: p.categoryName ?? "Sản phẩm",
+    }));
 
   const cards = [
     { id: "card-1", name: "Thiệp Phúc Lộc Thọ", price: 50000 },
@@ -218,26 +227,83 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
 
   const generateGiftImage = async () => {
     setIsGeneratingImage(true);
-    
-    // Mock API call - In production, replace with actual API endpoint
-    // const response = await fetch('/api/generate-gift-image', {
-    //   method: 'POST',
-    //   body: JSON.stringify({
-    //     packaging: selectedPackaging,
-    //     products: selectedProducts,
-    //     quantities: productQuantities
-    //   })
-    // });
-    // const data = await response.json();
-    // setGeneratedGiftImage(data.imageUrl);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock generated image
-    setGeneratedGiftImage("https://images.unsplash.com/photo-1740733543221-ce35af9307fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBnaWZ0JTIwYmFza2V0JTIwaGFtcGVyJTIwcmVkfGVufDF8fHx8MTc3MzU3Mzg2MHww&ixlib=rb-4.1.0&q=80&w=1080");
-    
-    setIsGeneratingImage(false);
+    setGeneratedGiftImage(null);
+    setConfirmedGiftBoxId(null);
+    setShowConfirmSuccess(false);
+
+    const packaging = packagingOptions.find((p) => p.id === selectedPackaging);
+    if (!packaging) {
+      setIsGeneratingImage(false);
+      return;
+    }
+
+    const productItems = selectedProducts
+      .map((productId) => {
+        const product = products.find((p) => p.id === productId);
+        if (!product?.image) return null;
+        return {
+          productId,
+          quantity: productQuantities[productId] || 1,
+          imageUrl: product.image,
+        };
+      })
+      .filter(Boolean);
+
+    try {
+      const response = await api.post<{ success: boolean; data: string }>(
+        "/custom-baskets/generate-image",
+        {
+          basketImageUrl: packaging.image,
+          products: productItems,
+        }
+      );
+
+      if (response.data.success && response.data.data) {
+        setGeneratedGiftImage("https://prn232.onrender.com" + response.data.data);
+      }
+    } catch {
+      // generatedGiftImage stays null — UI shows nothing
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!generatedGiftImage) return;
+    setIsConfirming(true);
+
+    const previewImageUrl = generatedGiftImage.replace("https://prn232.onrender.com", "");
+
+    const productItems = selectedProducts
+      .map((productId) => {
+        const product = products.find((p) => p.id === productId);
+        if (!product?.image) return null;
+        return {
+          productId,
+          quantity: productQuantities[productId] || 1,
+          imageUrl: product.image,
+        };
+      })
+      .filter(Boolean);
+
+    try {
+      const response = await api.post<{ success: boolean; data: string }>(
+        "/custom-baskets/confirm",
+        {
+          previewImageUrl,
+          products: productItems,
+        }
+      );
+
+      if (response.data.success && response.data.data) {
+        setConfirmedGiftBoxId(response.data.data);
+        setShowConfirmSuccess(true);
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   return (
@@ -452,7 +518,12 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
                     Bước 2: Chọn vật phẩm cho giỏ quà
                   </h2>
                   <p className="text-gray-600 mb-8">Chọn nhiều sản phẩm bạn muốn bỏ vào giỏ quà</p>
-                  
+
+                  {productsLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <Loader2 className="h-10 w-10 animate-spin text-[#B71C1C]" />
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {products.map((product) => (
                       <div
@@ -491,6 +562,7 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               )}
 
@@ -554,14 +626,24 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
                         
                         {/* Action Buttons */}
                         <div className="space-y-3">
-                          <Button 
-                            className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-300"
-                            onClick={() => {
-                              // Save gift basket logic here
-                              alert("Giỏ quà đã được lưu!");
-                            }}
+                          <Button
+                            className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-300 disabled:opacity-60"
+                            onClick={handleConfirm}
+                            disabled={isConfirming || !!confirmedGiftBoxId}
                           >
-                            Lưu giỏ quà
+                            {isConfirming ? (
+                              <>
+                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                Đang xác nhận...
+                              </>
+                            ) : confirmedGiftBoxId ? (
+                              <>
+                                <Check className="h-5 w-5 mr-2" />
+                                Đã xác nhận
+                              </>
+                            ) : (
+                              "Xác nhận giỏ quà của bạn"
+                            )}
                           </Button>
                           
                           <Button 
@@ -705,11 +787,16 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
               <div className="mt-6">
                 <Button
                   className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-4 shadow-lg hover:shadow-xl transition-all"
-                  disabled={currentStep !== 3 || getSelectedItems().length === 0}
+                  disabled={currentStep !== 3 || !confirmedGiftBoxId}
                   onClick={() => onNavigate?.("checkout")}
                 >
                   Thêm vào giỏ hàng
                 </Button>
+                {currentStep === 3 && !confirmedGiftBoxId && (
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Xác nhận giỏ quà trước khi thêm vào giỏ hàng
+                  </p>
+                )}
                 {currentStep !== 3 && (
                   <p className="text-xs text-gray-500 text-center mt-2">
                     Hoàn thành tất cả các bước để tiếp tục
@@ -734,6 +821,27 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
           </div>
         </div>
       </div>
+
+      {/* Confirm Success Toast */}
+      {showConfirmSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl shadow-2xl p-5 flex items-start gap-4">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <Check className="h-5 w-5 text-white" strokeWidth={3} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-base mb-1">Xác nhận thành công!</h4>
+              <p className="text-sm text-white/90">Giỏ quà của bạn đã được tạo. Bạn có thể thêm vào giỏ hàng ngay bây giờ.</p>
+            </div>
+            <button
+              onClick={() => setShowConfirmSuccess(false)}
+              className="text-white/70 hover:text-white transition-colors flex-shrink-0 mt-0.5"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
