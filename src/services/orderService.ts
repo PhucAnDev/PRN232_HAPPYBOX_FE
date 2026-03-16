@@ -109,6 +109,9 @@ const orderService = {
   // GET /api/orders/:id
   getById: (id: string) => api.get<ApiResponse<OrderResponse>>(`/orders/${id}`),
 
+  // GET /api/orders/user/:userId
+  getByUserId: (userId: string) => api.get<ApiResponse<OrderResponse[]>>(`/orders/user/${userId}`),
+
   // POST /api/orders
   create: (data: CreateOrderRequest) =>
     api.post<ApiResponse<OrderResponse>>("/orders", data),

@@ -47,10 +47,12 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
 
   useEffect(() => {
     const fetchAll = async () => {
+      if (!user?.id) return; // Don't fetch if no user logged in
+
       try {
         setLoading(true);
         const [ordersRes, productsRes, giftBoxesRes] = await Promise.allSettled([
-          orderService.getAll(),
+          orderService.getByUserId(user.id),
           productService.getAll(),
           giftBoxService.getAll(),
         ]);
@@ -85,7 +87,7 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
       }
     };
     fetchAll();
-  }, []);
+  }, [user?.id]);
 
   // Map tab → OrderStatus values
   const TAB_STATUS_MAP: Record<TabFilter, OrderStatus[] | null> = {

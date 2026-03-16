@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { useProducts } from "../hooks/useProduct";
 import api from "../services/api";
+import useCart from "../hooks/useCart";
+import { toast } from "sonner";
 
 interface CustomGiftBuilderProps {
   onNavigate?: (page: string) => void;
@@ -46,7 +48,9 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedGiftBoxId, setConfirmedGiftBoxId] = useState<string | null>(null);
   const [showConfirmSuccess, setShowConfirmSuccess] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
+  const { addItem } = useCart();
   const { products: apiProducts, loading: productsLoading } = useProducts();
 
   const steps = [
@@ -305,6 +309,24 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       // handle silently
     } finally {
       setIsConfirming(false);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!confirmedGiftBoxId) return;
+    setIsAddingToCart(true);
+    try {
+      const result = await addItem({ giftBoxId: confirmedGiftBoxId, quantity: 1 });
+      if ((result as any)?.error == null) {
+        toast.success("Đã thêm giỏ quà vào giỏ hàng!", {
+          description: "Bạn có thể tiếp tục mua sắm hoặc vào giỏ hàng để thanh toán.",
+          duration: 4000,
+        });
+      } else {
+        toast.error("Không thể thêm vào giỏ hàng. Vui lòng thử lại!");
+      }
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -789,10 +811,17 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
               <div className="mt-6">
                 <Button
                   className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-4 shadow-lg hover:shadow-xl transition-all"
-                  disabled={currentStep !== 3 || !confirmedGiftBoxId}
-                  onClick={() => onNavigate?.("checkout")}
+                  disabled={currentStep !== 3 || !confirmedGiftBoxId || isAddingToCart}
+                  onClick={handleAddToCart}
                 >
-                  Thêm vào giỏ hàng
+                  {isAddingToCart ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
+                      Đang thêm...
+                    </>
+                  ) : (
+                    "Thêm vào giỏ hàng"
+                  )}
                 </Button>
                 {currentStep === 3 && !confirmedGiftBoxId && (
                   <p className="text-xs text-gray-500 text-center mt-2">
