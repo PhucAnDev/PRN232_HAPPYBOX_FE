@@ -272,6 +272,8 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
     if (!generatedGiftImage) return;
     setIsConfirming(true);
 
+    // BE validation requires path to start with /images/custom-baskets/temp/
+    // So we need to strip the base URL
     const previewImageUrl = generatedGiftImage.replace("https://prn232.onrender.com", "");
 
     const productItems = selectedProducts

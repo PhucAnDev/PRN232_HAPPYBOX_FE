@@ -23,6 +23,8 @@ export interface GiftBoxResponse {
   description: string;
   basePrice: number;
   isActive: boolean;
+  isCustom: boolean;
+  userId?: string;
   categoryId: string;
   categoryName?: string;
   giftBoxComponentConfigId?: string;
@@ -68,6 +70,7 @@ const giftBoxService = {
   getById: (id: string) => api.get<{ success: boolean; data: GiftBoxResponse }>(`/GiftBox/${id}`),
   getByCategory: (categoryId: string) =>
     api.get<{ success: boolean; data: GiftBoxResponse[] }>(`/GiftBox/category/${categoryId}`),
+  getUserGiftBox: () => api.get<{ success: boolean; data: GiftBoxResponse[] }>("/GiftBox/user"),
   create: (data: CreateGiftBoxRequest) =>
     api.post<{ success: boolean; data: GiftBoxResponse }>("/GiftBox", data),
   update: (id: string, data: UpdateGiftBoxRequest) =>

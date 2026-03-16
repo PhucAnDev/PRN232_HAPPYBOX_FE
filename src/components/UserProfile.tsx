@@ -29,6 +29,8 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { toast, Toaster } from "sonner@2.0.3";
+import giftBoxService, { type GiftBoxResponse } from "../services/giftBoxService";
+import useCart from "../hooks/useCart";
 
 interface UserProfileProps {
   onNavigate?: (page: string) => void;
@@ -38,6 +40,7 @@ interface UserProfileProps {
 export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   const { user, logout, fetchProfile } = useAuth();
   const profile = useSelector((state: RootState) => state.auth.profile);
+  const { addItem } = useCart();
 
   const [activeSection, setActiveSection] = useState(() => {
     const saved = sessionStorage.getItem("profileSection");
@@ -56,6 +59,8 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   const [year, setYear] = useState("");
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedBasket, setSelectedBasket] = useState<any>(null);
+  const [giftBoxes, setGiftBoxes] = useState<GiftBoxResponse[]>([]);
+  const [isLoadingGiftBoxes, setIsLoadingGiftBoxes] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -72,114 +77,58 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
     }
   }, [profile, user]);
 
-  // Mock data for saved gift baskets
-  const savedGiftBaskets = [
-    {
-      id: "gb-1",
-      name: "Giỏ Quà Tết Sang Trọng",
-      createdDate: "10/03/2026",
-      total: 2300000,
-      image: "https://images.unsplash.com/photo-1644890587862-e309716adbca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBnaWZ0JTIwYmFza2V0JTIwcmVkJTIwZ29sZHxlbnwxfHx8fDE3NzM1NzUwOTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      items: [
-        { 
-          name: "Hộp Gỗ Sơn Mài", 
-          price: 450000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Rượu Vang Đỏ Cabernet", 
-          price: 850000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Hạt Macca Úc", 
-          price: 320000, 
-          quantity: 2,
-          image: "https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Trà Oolong Cao Cấp", 
-          price: 360000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=200&h=200&fit=crop"
-        }
-      ]
-    },
-    {
-      id: "gb-2",
-      name: "Giỏ Quà Sức Khỏe",
-      createdDate: "08/03/2026",
-      total: 1100000,
-      image: "https://images.unsplash.com/photo-1648663938947-405f9a14ede9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnaWZ0JTIwaGFtcGVyJTIwYmFza2V0JTIwd2luZXxlbnwxfHx8fDE3NzM1NzUwOTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      items: [
-        { 
-          name: "Giỏ Mây Tre Đan", 
-          price: 280000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Mật Ong Rừng Organic", 
-          price: 420000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1587049352846-4a222e784587?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Trà Sen Hồ Tây", 
-          price: 250000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Hạt Điều Rang", 
-          price: 150000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=200&h=200&fit=crop"
-        }
-      ]
-    },
-    {
-      id: "gb-3",
-      name: "Giỏ Quà Premium Deluxe",
-      createdDate: "05/03/2026",
-      total: 3200000,
-      image: "https://images.unsplash.com/photo-1740733543221-ce35af9307fc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-      items: [
-        { 
-          name: "Hộp Kim Loại Vàng Đồng", 
-          price: 550000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Rượu Vang Trắng Chardonnay", 
-          price: 920000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Socola Lindt", 
-          price: 380000, 
-          quantity: 2,
-          image: "https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Trà Oolong", 
-          price: 340000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=200&h=200&fit=crop"
-        },
-        { 
-          name: "Hạt Macca", 
-          price: 630000, 
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=200&h=200&fit=crop"
-        }
-      ]
+  // Fetch user's gift boxes when giftbaskets section is active
+  useEffect(() => {
+    if (activeSection === "giftbaskets") {
+      fetchUserGiftBoxes();
     }
-  ];
+  }, [activeSection]);
+
+  const fetchUserGiftBoxes = async () => {
+    try {
+      setIsLoadingGiftBoxes(true);
+      const response = await giftBoxService.getUserGiftBox();
+      if (response.data.success) {
+        setGiftBoxes(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching gift boxes:", error);
+      toast.error("Không thể tải giỏ quà của bạn");
+    } finally {
+      setIsLoadingGiftBoxes(false);
+    }
+  };
+
+  // Map API data to UI format
+  const mapGiftBoxToBasket = (giftBox: GiftBoxResponse) => {
+    const total = giftBox.boxComponents?.reduce((sum, component) => {
+      return sum + (component.productPrice * component.quantity);
+    }, 0) || giftBox.basePrice;
+
+    const items = giftBox.boxComponents?.map(component => ({
+      name: component.productName || "",
+      price: component.productPrice,
+      quantity: component.quantity,
+      image: ""
+    })) || [];
+
+    // Get image URL and prepend base URL if it's a relative path
+    const imageUrl = giftBox.images?.[0]?.url;
+    const fullImageUrl = imageUrl?.startsWith('/')
+      ? `https://prn232.onrender.com${imageUrl}`
+      : imageUrl || "https://images.unsplash.com/photo-1644890587862-e309716adbca?w=1080";
+
+    return {
+      id: giftBox.id,
+      name: giftBox.name,
+      createdDate: new Date(giftBox.createdAt).toLocaleDateString('vi-VN'),
+      total: total,
+      image: fullImageUrl,
+      items: items
+    };
+  };
+
+  const savedGiftBaskets = giftBoxes.map(mapGiftBoxToBasket);
 
   const formatPrice = (price: number) => {
     if (!price || typeof price !== 'number') {
@@ -217,12 +166,26 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
     onNavigate?.("custom-builder");
   };
 
-  const handleAddToCart = (id: string) => {
+  const handleAddToCart = async (id: string) => {
     const basket = savedGiftBaskets.find(b => b.id === id);
-    if (basket) {
-      toast.success("Đã thêm giỏ hàng thành công", {
-        duration: 3000,
+    if (!basket) return;
+
+    try {
+      const result = await addItem({
+        giftBoxId: id,
+        quantity: 1
       });
+
+      if ((result as any)?.error == null) {
+        toast.success(`Đã thêm "${basket.name}" vào giỏ hàng`, {
+          duration: 3000,
+        });
+      } else {
+        toast.error("Không thể thêm vào giỏ hàng. Vui lòng thử lại!");
+      }
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast.error("Không thể thêm vào giỏ hàng. Vui lòng thử lại!");
     }
   };
 
@@ -597,7 +560,14 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                   </div>
 
                   {/* Gift Baskets Grid */}
-                  {savedGiftBaskets.length === 0 ? (
+                  {isLoadingGiftBoxes ? (
+                    <div className="text-center py-16">
+                      <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
+                        <Gift className="w-12 h-12 text-gray-400 animate-pulse" />
+                      </div>
+                      <p className="text-gray-600">Đang tải giỏ quà của bạn...</p>
+                    </div>
+                  ) : savedGiftBaskets.length === 0 ? (
                     <div className="text-center py-16">
                       <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
                         <Gift className="w-12 h-12 text-gray-400" />

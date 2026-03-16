@@ -36,7 +36,7 @@ export interface CreateCustomBasketRequest {
 }
 
 export interface ConfirmCustomBasketRequest {
-  basketImageUrl: string;
+  previewImageUrl: string;
   products: CustomBasketProduct[];
 }
 
