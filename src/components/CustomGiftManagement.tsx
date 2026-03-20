@@ -7,7 +7,9 @@ import {
   Eye,
   Gift,
   Loader2,
+  Mail,
   Package,
+  Phone,
   RefreshCw,
   Search,
   ShoppingBag,
@@ -17,7 +19,6 @@ import {
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Badge } from "./ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ interface BasketItem {
 interface GiftBasket {
   id: string;
   name: string;
+  description: string;
   createdAt: string;
   createdDate: string;
   total: number;
@@ -137,6 +139,9 @@ const formatPrice = (price: number) => {
 
   return `${price.toLocaleString("vi-VN")} VND`;
 };
+
+const formatCurrency = (amount: number) =>
+  `${new Intl.NumberFormat("vi-VN").format(amount || 0)}đ`;
 
 const formatCompactMillions = (amount: number) => {
   if (!amount) {
@@ -231,6 +236,8 @@ const mapGiftBoxToBasket = (giftBox: GiftBoxResponse): GiftBasket => {
   return {
     id: giftBox.id,
     name: giftBox.name || giftBox.code || "Giỏ quà thiết kế",
+    description:
+      giftBox.description?.trim() || "Chưa có mô tả cho giỏ quà này.",
     createdAt: giftBox.createdAt,
     createdDate: new Date(giftBox.createdAt).toLocaleDateString("vi-VN"),
     total: computedTotal > 0 ? computedTotal : giftBox.basePrice || 0,
@@ -426,6 +433,9 @@ export function CustomGiftManagement() {
     );
   }, [customers]);
 
+  const totalCustomCustomers = customers.length;
+  const latestBasket = selectedCustomer?.giftBaskets[0] ?? null;
+
   const handleViewBasket = (basket: GiftBasket) => {
     setSelectedBasket(basket);
     setIsViewDialogOpen(true);
@@ -492,390 +502,473 @@ export function CustomGiftManagement() {
   };
 
   return (
-    <div className="min-h-full bg-[#FAFAFA]">
-      <div className="border-b border-gray-200 bg-white px-8 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1
-              className="mb-1 text-2xl font-bold text-gray-900"
-              style={{ fontFamily: "'Playfair Display', 'Noto Serif', serif" }}
-            >
-              Sản Phẩm Thiết Kế
-            </h1>
-            <p className="text-sm text-gray-500">
-              Quản lý các giỏ quà do khách hàng tự thiết kế từ dữ liệu hiện có.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-lg border-2 border-[#B71C1C] bg-white px-5 py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#B71C1C]">
-                  <Gift className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="mb-0.5 text-xs text-gray-500">Tổng Giỏ Quà</p>
-                  <p className="text-xl font-bold text-[#B71C1C]">
-                    {summary.totalGiftBaskets}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border-2 border-[#D4AF37] bg-white px-5 py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]">
-                  <DollarSign className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="mb-0.5 text-xs text-gray-500">Tổng Giá Trị</p>
-                  <p className="text-xl font-bold text-[#D4AF37]">
-                    {formatCompactMillions(summary.totalValue)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              onClick={fetchData}
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-              Làm mới
-            </Button>
-          </div>
-        </div>
+    <div className="p-8">
+      <div className="mb-6">
+        <h1
+          className="mb-2 text-3xl font-bold text-gray-900"
+          style={{ fontFamily: "'Playfair Display', serif" }}
+        >
+          Sản Phẩm Thiết Kế
+        </h1>
+        <p className="text-gray-600">
+          Xem khách hàng đang sở hữu giỏ quà custom và theo dõi chi tiết từng thiết kế.
+        </p>
       </div>
 
-      {userWarning && (
-        <div className="mx-8 mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-            <p className="text-sm">{userWarning}</p>
-          </div>
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-[#B71C1C]" />
+          <span className="ml-2 text-gray-600">Đang tải dữ liệu...</span>
         </div>
       )}
 
-      {loading ? (
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-6 py-4 shadow-sm">
-            <Loader2 className="h-6 w-6 animate-spin text-[#B71C1C]" />
-            <span className="text-gray-700">Đang tải giỏ quà thiết kế...</span>
-          </div>
+      {error && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-red-800">❌ {error}</p>
+          <button
+            onClick={fetchData}
+            className="mt-2 text-red-600 underline hover:text-red-800"
+          >
+            Thử lại
+          </button>
         </div>
-      ) : error ? (
-        <div className="px-8 py-8">
-          <div className="rounded-2xl border border-red-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
-              <AlertCircle className="h-7 w-7 text-red-600" />
-            </div>
-            <h2 className="mb-2 text-xl font-bold text-gray-900">
-              Không tải được dữ liệu
-            </h2>
-            <p className="mx-auto mb-5 max-w-2xl text-sm text-gray-600">
-              {error}
-            </p>
-            <Button
-              onClick={fetchData}
-              className="bg-[#B71C1C] text-white hover:bg-[#981717]"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Thử lại
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex min-h-[calc(100vh-110px)]">
-          <div className="flex w-[380px] flex-shrink-0 flex-col border-r border-gray-200 bg-white">
-            <div className="space-y-3 border-b border-gray-200 p-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Tìm kiếm khách hàng..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="w-full rounded-lg border-gray-300 py-2 pl-9 pr-4 focus:border-[#B71C1C] focus:ring-2 focus:ring-[#B71C1C]/20"
-                />
-              </div>
+      )}
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setTypeFilter("all")}
-                  variant={typeFilter === "all" ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    typeFilter === "all"
-                      ? "bg-[#B71C1C] text-xs text-white hover:bg-[#9A1919]"
-                      : "border-gray-300 text-xs text-gray-600 hover:bg-gray-50"
-                  }
-                >
-                  Tất cả
-                </Button>
-                <Button
-                  onClick={() => setTypeFilter("individual")}
-                  variant={typeFilter === "individual" ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    typeFilter === "individual"
-                      ? "bg-[#B71C1C] text-xs text-white hover:bg-[#9A1919]"
-                      : "border-gray-300 text-xs text-gray-600 hover:bg-gray-50"
-                  }
-                >
-                  <User className="mr-1 h-3 w-3" />
-                  Cá nhân
-                </Button>
-                <Button
-                  onClick={() => setTypeFilter("enterprise")}
-                  variant={typeFilter === "enterprise" ? "default" : "outline"}
-                  size="sm"
-                  className={
-                    typeFilter === "enterprise"
-                      ? "bg-[#B71C1C] text-xs text-white hover:bg-[#9A1919]"
-                      : "border-gray-300 text-xs text-gray-600 hover:bg-gray-50"
-                  }
-                >
-                  <ShoppingBag className="mr-1 h-3 w-3" />
-                  Doanh nghiệp
-                </Button>
+      {!loading && !error && (
+        <>
+          {userWarning && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">{userWarning}</p>
               </div>
             </div>
+          )}
 
-            <div className="flex-1 overflow-y-auto">
-              {filteredCustomers.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center px-6 text-center text-gray-400">
-                  <User className="mb-3 h-16 w-16" />
-                  <p className="text-sm font-medium text-gray-600">
-                    Không tìm thấy khách hàng phù hợp
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Hãy thử đổi bộ lọc hoặc tìm kiếm với từ khóa khác.
-                  </p>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 space-y-4 lg:col-span-4">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Tìm tên hoặc mã khách..."
+                      className="w-full rounded-lg border-gray-300 py-2 pl-9 pr-3 text-sm"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-300 px-3"
+                    onClick={fetchData}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {filteredCustomers.map((customer) => (
+
+                <div className="mb-4 flex gap-2">
+                  <button
+                    onClick={() => setTypeFilter("all")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      typeFilter === "all"
+                        ? "bg-[#B71C1C] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter("individual")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      typeFilter === "individual"
+                        ? "bg-[#B71C1C] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Cá nhân
+                  </button>
+                  <button
+                    onClick={() => setTypeFilter("enterprise")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      typeFilter === "enterprise"
+                        ? "bg-[#B71C1C] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    DN
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="mb-1 text-xs text-gray-500">Khách custom</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {totalCustomCustomers}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-[#F3E2AA] bg-[#FFF9E8] p-3">
+                    <p className="mb-1 text-xs text-gray-500">Tổng giá trị</p>
+                    <p className="text-lg font-bold text-[#D4AF37]">
+                      {formatCompactMillions(summary.totalValue)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-[700px] space-y-2 overflow-y-auto pr-2">
+                {filteredCustomers.length === 0 ? (
+                  <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+                    <User className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                    <p className="text-sm font-medium text-gray-600">
+                      Không tìm thấy khách hàng phù hợp
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Hãy thử tìm với tên, email hoặc mã khách khác.
+                    </p>
+                  </div>
+                ) : (
+                  filteredCustomers.map((customer) => (
                     <button
                       key={customer.id}
                       onClick={() => setSelectedCustomerId(customer.id)}
-                      className={`w-full p-4 text-left transition-colors hover:bg-gray-50 ${
+                      className={`w-full rounded-xl bg-white p-4 text-left shadow-sm transition-all hover:shadow-md ${
                         selectedCustomer?.id === customer.id
-                          ? "border-l-4 border-[#B71C1C] bg-red-50/50"
-                          : ""
+                          ? "border-2 border-[#D4AF37] bg-yellow-50"
+                          : "border border-gray-200"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
-                            customer.type === "enterprise"
-                              ? "bg-[#D4AF37]"
-                              : "bg-[#B71C1C]"
+                          className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+                            customer.isVip
+                              ? "bg-gradient-to-br from-[#D4AF37] to-[#FFD700]"
+                              : customer.type === "enterprise"
+                                ? "bg-blue-500"
+                                : "bg-gray-500"
                           }`}
                         >
                           {customer.avatar}
                         </div>
-
                         <div className="min-w-0 flex-1">
                           <div className="mb-1 flex items-center gap-2">
-                            <h3 className="truncate text-sm font-semibold text-gray-900">
+                            <p className="truncate text-sm font-bold text-gray-900">
                               {customer.name}
-                            </h3>
+                            </p>
                             {customer.isVip && (
                               <Crown className="h-3.5 w-3.5 flex-shrink-0 text-[#D4AF37]" />
                             )}
                           </div>
-                          <p className="mb-1.5 text-xs text-gray-400">
+                          <p className="mb-1 text-xs text-gray-500">
                             {customer.userId}
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Gift className="h-3 w-3" />
+                          <p className="mb-2 text-xs text-gray-600">
+                            {customer.phone}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {customer.isVip ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD700] px-2 py-0.5 text-xs font-bold text-white">
+                                VIP
+                              </span>
+                            ) : customer.type === "enterprise" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                Doanh nghiệp
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                                Cá nhân
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500">
                               {customer.totalGiftBaskets} giỏ
                             </span>
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
+                            <span className="text-xs font-semibold text-[#D4AF37]">
                               {formatCompactMillions(customer.totalValue)}
                             </span>
                           </div>
                         </div>
-
-                        <Badge
-                          className={`h-5 text-xs ${
-                            customer.type === "enterprise"
-                              ? "border-blue-200 bg-blue-50 text-blue-700"
-                              : "border-green-200 bg-green-50 text-green-700"
-                          }`}
-                        >
-                          {customer.type === "enterprise" ? "DN" : "CN"}
-                        </Badge>
                       </div>
                     </button>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {selectedCustomer ? (
-              <>
-                <div className="border-b-4 border-[#D4AF37] bg-[#B71C1C] px-8 py-5 text-white">
-                  <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white ${
-                          selectedCustomer.type === "enterprise"
-                            ? "bg-[#D4AF37]"
-                            : "bg-white/20"
-                        }`}
-                      >
-                        {selectedCustomer.avatar}
-                      </div>
-                      <div>
-                        <div className="mb-1 flex items-center gap-2">
-                          <h2 className="text-xl font-bold">
-                            {selectedCustomer.name}
-                          </h2>
-                          {selectedCustomer.isVip && (
-                            <Crown className="h-5 w-5 text-[#D4AF37]" />
-                          )}
+
+            <div className="col-span-12 space-y-6 lg:col-span-8">
+              {!selectedCustomer ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
+                  <User className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                  <p className="text-gray-500">
+                    Chọn một khách hàng để xem chi tiết giỏ quà thiết kế
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+                    <div className="mb-6 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-6">
+                        <div
+                          className={`flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white ${
+                            selectedCustomer.isVip
+                              ? "bg-gradient-to-br from-[#D4AF37] to-[#FFD700]"
+                              : selectedCustomer.type === "enterprise"
+                                ? "bg-blue-500"
+                                : "bg-gray-500"
+                          }`}
+                        >
+                          {selectedCustomer.avatar}
                         </div>
-                        <p className="text-sm text-white/90">
-                          {selectedCustomer.email}
-                        </p>
-                        <p className="text-xs text-white/80">
-                          {selectedCustomer.phone}
-                        </p>
+                        <div>
+                          <div className="mb-2 flex items-center gap-3">
+                            <h2
+                              className="text-2xl font-bold text-gray-900"
+                              style={{ fontFamily: "'Playfair Display', serif" }}
+                            >
+                              {selectedCustomer.name}
+                            </h2>
+                            {selectedCustomer.isVip && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#FFD700] px-3 py-1 text-xs font-bold text-white">
+                                <Crown className="h-3 w-3" />
+                                VIP CUSTOMER
+                              </span>
+                            )}
+                          </div>
+                          <p className="mb-4 font-mono text-sm text-gray-500">
+                            {selectedCustomer.userId}
+                          </p>
+
+                          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-700">
+                                {selectedCustomer.email}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-700">
+                                {selectedCustomer.phone}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selectedCustomer.type === "enterprise" ? (
+                                <ShoppingBag className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <User className="h-4 w-4 text-gray-400" />
+                              )}
+                              <span className="text-sm text-gray-700">
+                                {selectedCustomer.type === "enterprise"
+                                  ? "Khách doanh nghiệp"
+                                  : "Khách cá nhân"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-700">
+                                Thiết kế gần nhất:{" "}
+                                {latestBasket?.createdDate || "Chưa có"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-300 text-gray-700"
+                          onClick={fetchData}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Làm mới
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[#D4AF37] text-[#B71C1C] hover:bg-yellow-50"
+                        >
+                          <Gift className="mr-2 h-4 w-4" />
+                          Giỏ custom
+                        </Button>
                       </div>
                     </div>
 
-                    <div className="flex gap-8">
+                    <div className="grid grid-cols-3 gap-6 border-t border-gray-200 pt-6">
                       <div className="text-center">
-                        <p className="mb-1 text-xs text-white/70">Tổng Giỏ Quà</p>
-                        <p className="text-2xl font-bold">
+                        <p className="mb-2 text-sm text-gray-600">
+                          Tổng giá trị thiết kế
+                        </p>
+                        <p
+                          className="text-2xl font-bold text-[#D4AF37]"
+                          style={{ fontFamily: "'Playfair Display', serif" }}
+                        >
+                          {formatCurrency(selectedCustomer.totalValue)}
+                        </p>
+                      </div>
+                      <div className="border-x border-gray-200 text-center">
+                        <p className="mb-2 text-sm text-gray-600">
+                          Tổng giỏ quà
+                        </p>
+                        <p
+                          className="text-2xl font-bold text-gray-900"
+                          style={{ fontFamily: "'Playfair Display', serif" }}
+                        >
                           {selectedCustomer.totalGiftBaskets}
                         </p>
                       </div>
-                      <div className="w-px bg-white/20" />
                       <div className="text-center">
-                        <p className="mb-1 text-xs text-white/70">Tổng Giá Trị</p>
-                        <p className="text-2xl font-bold text-[#D4AF37]">
-                          {formatPrice(selectedCustomer.totalValue)}
+                        <p className="mb-2 text-sm text-gray-600">
+                          Thiết kế gần nhất
                         </p>
+                        <div className="flex items-center justify-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <p className="text-sm font-medium text-gray-900">
+                            {latestBasket?.createdDate || "Chưa xác định"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex-1 overflow-y-auto bg-[#FAFAFA] p-6">
-                  {selectedCustomer.giftBaskets.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center text-gray-400">
-                      <Gift className="mb-4 h-20 w-20" />
-                      <p className="text-base font-semibold">
-                        Chưa có giỏ quà thiết kế
-                      </p>
-                      <p className="text-sm">
-                        Khách hàng này chưa có giỏ quà nào khả dụng.
-                      </p>
+                  <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+                    <div className="border-b border-gray-200 px-6 py-4">
+                      <div className="flex items-center justify-between">
+                        <h3
+                          className="text-xl font-bold text-gray-900"
+                          style={{ fontFamily: "'Playfair Display', serif" }}
+                        >
+                          Giỏ Quà Thiết Kế
+                        </h3>
+                        <span className="text-sm text-gray-600">
+                          {selectedCustomer.giftBaskets.length} thiết kế
+                        </span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                      {selectedCustomer.giftBaskets.map((basket) => {
-                        const isDeleting = isDeletingBasketId === basket.id;
 
-                        return (
-                          <div
-                            key={basket.id}
-                            className="group overflow-hidden rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:border-gray-300 hover:shadow-lg"
-                          >
-                            <div className="relative aspect-square overflow-hidden bg-gray-100">
-                              <img
-                                src={basket.image}
-                                alt={basket.name}
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              />
-                            </div>
+                    {selectedCustomer.giftBaskets.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <Gift className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                        <p className="text-gray-500">
+                          Khách hàng chưa có giỏ quà thiết kế nào
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <table className="w-full table-fixed">
+                          <colgroup>
+                            <col className="w-[42%]" />
+                            <col className="w-[18%]" />
+                            <col className="w-[14%]" />
+                            <col className="w-[16%]" />
+                            <col className="w-[10%]" />
+                          </colgroup>
+                          <thead className="border-b border-gray-200 bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                Giỏ quà
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                Ngày tạo
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                Sản phẩm
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                Giá trị
+                              </th>
+                              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                                Hành động
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {selectedCustomer.giftBaskets.map((basket) => {
+                              const isDeleting = isDeletingBasketId === basket.id;
 
-                            <div className="p-4">
-                              <h3
-                                className="mb-1 line-clamp-1 text-base font-bold text-gray-900"
-                                style={{
-                                  fontFamily:
-                                    "'Playfair Display', 'Noto Serif', serif",
-                                }}
-                              >
-                                {basket.name}
-                              </h3>
-
-                              <p className="mb-3 flex items-center gap-1 text-xs text-gray-400">
-                                <Calendar className="h-3 w-3" />
-                                {basket.createdDate}
-                              </p>
-
-                              <div className="mb-3 flex items-center gap-1.5 text-sm text-gray-600">
-                                <Package className="h-4 w-4" />
-                                <span>{basket.itemsCount} sản phẩm</span>
-                              </div>
-
-                              <div className="mb-3 border-b border-gray-200 pb-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500">
-                                    Tổng giá trị:
-                                  </span>
-                                  <span className="text-lg font-bold text-[#D4AF37]">
-                                    {formatPrice(basket.total)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => handleViewBasket(basket)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 flex-1 border-[#D4AF37] text-xs text-[#D4AF37] transition-all hover:bg-[#D4AF37] hover:text-white"
+                              return (
+                                <tr
+                                  key={basket.id}
+                                  className="transition-colors hover:bg-gray-50"
                                 >
-                                  <Eye className="mr-1 h-3.5 w-3.5" />
-                                  Xem
-                                </Button>
-                                <Button
-                                  onClick={() => handleDeleteBasket(basket.id)}
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={isDeleting}
-                                  className="h-8 border-gray-300 text-gray-600 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                                >
-                                  {isDeleting ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center px-8 text-center text-gray-400">
-                <User className="mb-4 h-20 w-20" />
-                <p className="text-base font-semibold text-gray-700">
-                  Chưa có dữ liệu để hiển thị
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Hiện chưa có giỏ quà thiết kế nào phù hợp với bộ lọc đang chọn.
-                </p>
-              </div>
-            )}
+                                  <td className="px-4 py-4 align-top">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                                        <img
+                                          src={basket.image}
+                                          alt={basket.name}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="line-clamp-2 break-words text-sm font-bold leading-5 text-gray-900">
+                                          {basket.name}
+                                        </p>
+                                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+                                          {basket.description}
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                          {basket.itemsCount} sản phẩm trong giỏ
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 align-top">
+                                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                                      <Calendar className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                                      <span className="leading-5">
+                                        {basket.createdDate}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-4 align-top">
+                                    <span className="text-sm font-medium leading-5 text-gray-900">
+                                      {basket.itemsCount} sản phẩm
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4 align-top">
+                                    <span className="text-sm font-bold leading-5 text-[#D4AF37]">
+                                      {formatCurrency(basket.total)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4 text-center align-top">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => handleViewBasket(basket)}
+                                        className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-[#B71C1C]"
+                                        title="Xem chi tiết"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteBasket(basket.id)}
+                                        className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                        title="Xóa giỏ quà"
+                                        disabled={isDeleting}
+                                      >
+                                        {isDeleting ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
@@ -895,7 +988,6 @@ export function CustomGiftManagement() {
               </DialogDescription>
             </DialogHeader>
           </div>
-
           {selectedBasket && (
             <div className="grid grid-cols-1 gap-8 bg-[#FFFDF5] p-8 md:grid-cols-2">
               <div className="space-y-4">
@@ -904,7 +996,6 @@ export function CustomGiftManagement() {
                   <div className="absolute right-0 top-0 z-10 h-16 w-16 rounded-tr-2xl border-r-4 border-t-4 border-[#D4AF37]" />
                   <div className="absolute bottom-0 left-0 z-10 h-16 w-16 rounded-bl-2xl border-b-4 border-l-4 border-[#D4AF37]" />
                   <div className="absolute bottom-0 right-0 z-10 h-16 w-16 rounded-br-2xl border-b-4 border-r-4 border-[#D4AF37]" />
-
                   <img
                     src={selectedBasket.image}
                     alt={selectedBasket.name}
@@ -927,6 +1018,9 @@ export function CustomGiftManagement() {
                       Ngày tạo: {selectedBasket.createdDate}
                     </p>
                   </div>
+                  <p className="mt-4 text-sm leading-6 text-gray-600">
+                    {selectedBasket.description}
+                  </p>
                 </div>
 
                 <div className="overflow-hidden rounded-xl border-2 border-[#D4AF37]/30 bg-white shadow-md">
