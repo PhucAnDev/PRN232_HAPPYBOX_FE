@@ -22,6 +22,56 @@ interface PaymentStatusData {
   message: string;
 }
 
+interface MomoExtraDataPayload {
+  orderId?: string;
+  orderNumber?: string;
+}
+
+const GUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isGuid(value: string | null | undefined): value is string {
+  return !!value && GUID_REGEX.test(value);
+}
+
+function decodeExtraData(extraData: string | null): MomoExtraDataPayload | null {
+  if (!extraData) return null;
+
+  try {
+    const decoded = window.atob(extraData);
+    return JSON.parse(decoded) as MomoExtraDataPayload;
+  } catch {
+    return null;
+  }
+}
+
+function resolveOrderIdFromReturnUrl(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const decodedExtraData = decodeExtraData(params.get("extraData"));
+
+  if (isGuid(decodedExtraData?.orderId)) {
+    return decodedExtraData.orderId;
+  }
+
+  const orderIdFromQuery = params.get("orderId");
+  if (isGuid(orderIdFromQuery)) {
+    return orderIdFromQuery;
+  }
+
+  const storedOrderId = sessionStorage.getItem("momoOrderId");
+  if (isGuid(storedOrderId)) {
+    return storedOrderId;
+  }
+
+  return null;
+}
+
+function cleanupReturnUrl() {
+  const cleanHash = window.location.hash || "#/payment-return";
+  const cleanUrl = `${window.location.pathname}${cleanHash}`;
+  window.history.replaceState({}, document.title, cleanUrl);
+}
+
 export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
   const dispatch = useDispatch<AppDispatch>();
   const [status, setStatus] = useState<Status>("loading");
@@ -30,8 +80,10 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
 
   useEffect(() => {
     const verify = async () => {
-      const storedOrderId = sessionStorage.getItem("momoOrderId");
-      if (!storedOrderId) {
+      const orderId = resolveOrderIdFromReturnUrl();
+      cleanupReturnUrl();
+
+      if (!orderId) {
         setStatus("failed");
         return;
       }
@@ -40,31 +92,36 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
         const response = await api.get<{
           success: boolean;
           data: PaymentStatusData;
-        }>(`/Payment/momo/orders/${storedOrderId}/status`);
+        }>(`/Payment/momo/orders/${orderId}/status`);
 
         if (response.data.success && response.data.data) {
           setPaymentData(response.data.data);
+
           if (response.data.data.resultCode === 0) {
             setStatus("success");
             sessionStorage.removeItem("momoOrderId");
 
-            // ✅ FIX: Fetch order details to display full order info
+            // Fetch order details so we can render the full success screen.
             try {
               const orderRes = await api.get<{ success: boolean; data: OrderData }>(
-                `/Order/${storedOrderId}`
+                `/Order/${orderId}`
               );
+
               if (orderRes.data.success && orderRes.data.data) {
                 setOrderData(orderRes.data.data);
               }
             } catch {
-              // If order fetch fails, still show payment success
+              // If order fetch fails, we still keep the payment success state.
               console.warn("Failed to fetch order details");
             }
 
-            // Xóa cart qua Redux để đồng bộ store (badge header cập nhật đúng)
-            try { await dispatch(emptyCart()); } catch { /* bỏ qua nếu lỗi */ }
+            // Keep cart badge in sync after coming back from MoMo.
+            try {
+              await dispatch(emptyCart());
+            } catch {
+              // Ignore cart cleanup errors on the return screen.
+            }
           } else {
-            // Xóa orderId khi thất bại để tránh verify lại lần sau
             sessionStorage.removeItem("momoOrderId");
             setStatus("failed");
           }
@@ -89,20 +146,18 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
       <div className="min-h-screen bg-[#FFFDF5] flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-16 w-16 animate-spin text-[#B71C1C] mx-auto" />
-          <h2 className="text-2xl font-bold text-gray-800">Đang xác nhận thanh toán...</h2>
-          <p className="text-gray-500">Vui lòng chờ trong giây lát</p>
+          <h2 className="text-2xl font-bold text-gray-800">Dang xac nhan thanh toan...</h2>
+          <p className="text-gray-500">Vui long cho trong giay lat</p>
         </div>
       </div>
     );
   }
 
   if (status === "success") {
-    // If we have full order data, show OrderSuccess component
     if (orderData) {
       return <OrderSuccess orderData={orderData} onNavigate={onNavigate} />;
     }
 
-    // Fallback if order fetch failed - show payment success info
     return (
       <div className="min-h-screen bg-[#FFFDF5] flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center border border-gray-100">
@@ -113,14 +168,14 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
             className="text-3xl font-bold text-gray-900 mb-2"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
-            Thanh toán thành công!
+            Thanh toan thanh cong!
           </h2>
           <p className="text-gray-500 mb-6">
-            Đơn hàng của bạn đã được xác nhận và đang được xử lý.
+            Don hang cua ban da duoc xac nhan va dang duoc xu ly.
           </p>
           {paymentData?.amount != null && (
             <div className="bg-green-50 rounded-xl p-4 mb-8">
-              <p className="text-sm text-gray-500 mb-1">Số tiền đã thanh toán</p>
+              <p className="text-sm text-gray-500 mb-1">So tien da thanh toan</p>
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(paymentData.amount)}
               </p>
@@ -132,7 +187,7 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
               onClick={() => onNavigate?.("order-history")}
             >
               <ClipboardList className="h-5 w-5 mr-2" />
-              Xem đơn hàng của tôi
+              Xem don hang cua toi
             </Button>
             <Button
               variant="outline"
@@ -140,7 +195,7 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
               onClick={() => onNavigate?.("home")}
             >
               <Home className="h-5 w-5 mr-2" />
-              Về trang chủ
+              Ve trang chu
             </Button>
           </div>
         </div>
@@ -148,7 +203,6 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
     );
   }
 
-  // status === "failed"
   return (
     <div className="min-h-screen bg-[#FFFDF5] flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full text-center border border-gray-100">
@@ -159,17 +213,17 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
           className="text-3xl font-bold text-gray-900 mb-2"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
-          Thanh toán thất bại
+          Thanh toan that bai
         </h2>
         <p className="text-gray-500 mb-8">
-          Giao dịch không thành công hoặc đã bị hủy. Vui lòng thử lại.
+          {paymentData?.message || "Giao dich khong thanh cong hoac da bi huy. Vui long thu lai."}
         </p>
         <div className="space-y-3">
           <Button
             className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-4"
             onClick={() => onNavigate?.("checkout")}
           >
-            Thử lại
+            Thu lai
           </Button>
           <Button
             variant="outline"
@@ -177,7 +231,7 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
             onClick={() => onNavigate?.("home")}
           >
             <Home className="h-5 w-5 mr-2" />
-            Về trang chủ
+            Ve trang chu
           </Button>
         </div>
       </div>

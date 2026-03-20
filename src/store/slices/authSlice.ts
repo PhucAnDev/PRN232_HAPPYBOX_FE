@@ -62,6 +62,7 @@ export const googleLoginThunk = createAsyncThunk(
       const { accessToken, refreshToken, user } = res.data.data;
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("user", JSON.stringify(user));
       console.log("Google login successful!");
       return { accessToken, refreshToken, user };
     } catch (err: any) {
