@@ -61,6 +61,8 @@ interface Order {
   note?: string;
 }
 
+const ORDERS_PER_PAGE = 10;
+
 export function OrderManagement() {
   const {
     fetchOrders: loadOrders,
@@ -76,6 +78,7 @@ export function OrderManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [newStatus, setNewStatus] = useState<Order["orderStatus"]>("pending");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -128,6 +131,10 @@ export function OrderManagement() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, paymentFilter]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -359,18 +366,26 @@ export function OrderManagement() {
   };
 
   const handleSelectAll = (checked: boolean) => {
+    const currentPageOrderIds = paginatedOrders.map((order) => order.id);
+
     if (checked) {
-      setSelectedOrders(orders.map((order) => order.id));
+      setSelectedOrders((previous) =>
+        Array.from(new Set([...previous, ...currentPageOrderIds])),
+      );
     } else {
-      setSelectedOrders([]);
+      setSelectedOrders((previous) =>
+        previous.filter((id) => !currentPageOrderIds.includes(id)),
+      );
     }
   };
 
   const handleSelectOrder = (orderId: string, checked: boolean) => {
     if (checked) {
-      setSelectedOrders([...selectedOrders, orderId]);
+      setSelectedOrders((previous) =>
+        Array.from(new Set([...previous, orderId])),
+      );
     } else {
-      setSelectedOrders(selectedOrders.filter((id) => id !== orderId));
+      setSelectedOrders((previous) => previous.filter((id) => id !== orderId));
     }
   };
 
@@ -438,12 +453,45 @@ export function OrderManagement() {
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredOrders.length / ORDERS_PER_PAGE),
+  );
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedOrders = filteredOrders.slice(
+    (safeCurrentPage - 1) * ORDERS_PER_PAGE,
+    safeCurrentPage * ORDERS_PER_PAGE,
+  );
+  const currentPageOrderIds = paginatedOrders.map((order) => order.id);
+  const allCurrentPageSelected =
+    currentPageOrderIds.length > 0 &&
+    currentPageOrderIds.every((id) => selectedOrders.includes(id));
+  const visiblePageNumbers = Array.from(
+    new Set(
+      [
+        1,
+        safeCurrentPage - 1,
+        safeCurrentPage,
+        safeCurrentPage + 1,
+        totalPages,
+      ].filter((page) => page >= 1 && page <= totalPages),
+    ),
+  ).sort((left, right) => left - right);
+  const startOrderIndex =
+    filteredOrders.length === 0
+      ? 0
+      : (safeCurrentPage - 1) * ORDERS_PER_PAGE + 1;
+  const endOrderIndex =
+    filteredOrders.length === 0
+      ? 0
+      : Math.min(safeCurrentPage * ORDERS_PER_PAGE, filteredOrders.length);
+
   const orderStats = {
     total: orders.length,
     pending: orders.filter((o) => o.orderStatus === "pending").length,
     processing: orders.filter((o) => o.orderStatus === "processing").length,
     shipping: orders.filter((o) => o.orderStatus === "shipping").length,
-    completed: orders.filter((o) => o.orderStatus === "completed").length,
+    completed: orders.filter((o) => o.orderStatus === "delivered").length,
   };
 
   if (showCreateOrder) {
@@ -641,48 +689,58 @@ export function OrderManagement() {
 
           {/* Orders Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col className="w-14" />
+                  <col className="w-[22%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-24" />
+                </colgroup>
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left">
+                    <th className="px-4 py-4 text-left">
                       <input
                         type="checkbox"
                         className="w-4 h-4 text-[#B71C1C] border-gray-300 rounded focus:ring-[#D4AF37]"
-                        checked={selectedOrders.length === orders.length}
+                        checked={allCurrentPageSelected}
                         onChange={(e) => handleSelectAll(e.target.checked)}
                       />
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Mã Đơn
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Khách Hàng
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Ngày Đặt
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Số Tiền
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Thanh Toán
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Trạng Thái
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Hành Động
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredOrders.map((order) => (
+                  {paginatedOrders.map((order) => (
                     <tr
                       key={order.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4 align-top">
                         <input
                           type="checkbox"
                           className="w-4 h-4 text-[#B71C1C] border-gray-300 rounded focus:ring-[#D4AF37]"
@@ -692,40 +750,43 @@ export function OrderManagement() {
                           }
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-[#B71C1C]">
+                      <td className="px-4 py-4 align-top">
+                        <span className="block break-all text-sm font-bold text-[#B71C1C]">
                           {order.id}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-3">
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex min-w-0 items-center space-x-3">
                           <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-white font-semibold text-sm">
                             {order.customer.avatar}
                           </div>
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="truncate text-sm font-medium text-gray-900">
                             {order.customer.name}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 align-top whitespace-nowrap">
                         <span className="text-sm text-gray-600">
                           {order.date}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 align-top whitespace-nowrap">
                         <span className="text-sm font-bold text-gray-900">
                           {formatCurrency(order.amount)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 align-top text-center">
                         {getPaymentBadge(order.paymentStatus)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div onClick={() => handleQuickStatusChange(order)}>
+                      <td className="px-4 py-4 align-top text-center">
+                        <div
+                          className="inline-flex"
+                          onClick={() => handleQuickStatusChange(order)}
+                        >
                           {getStatusBadge(order.orderStatus)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 align-top">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             className="p-2 text-gray-600 hover:text-[#B71C1C] hover:bg-gray-100 rounded-lg transition-colors"
@@ -761,30 +822,56 @@ export function OrderManagement() {
             )}
 
             {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <p className="text-sm text-gray-600">
                 Hiển thị{" "}
-                <span className="font-semibold">{filteredOrders.length}</span> /{" "}
-                <span className="font-semibold">{orders.length}</span> đơn hàng
+                <span className="font-semibold">{startOrderIndex}</span> -{" "}
+                <span className="font-semibold">{endOrderIndex}</span> /{" "}
+                <span className="font-semibold">{filteredOrders.length}</span>{" "}
+                đơn hàng
               </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled>
-                  Trước
-                </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-[#B71C1C] text-white border-[#B71C1C]"
+                  disabled={safeCurrentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                 >
-                  1
+                  Trước
                 </Button>
-                <Button variant="outline" size="sm">
-                  2
-                </Button>
-                <Button variant="outline" size="sm">
-                  3
-                </Button>
-                <Button variant="outline" size="sm">
+                {visiblePageNumbers.map((page, index) => {
+                  const previousPage = visiblePageNumbers[index - 1];
+                  const shouldShowGap =
+                    previousPage !== undefined && page - previousPage > 1;
+
+                  return (
+                    <div key={page} className="flex items-center gap-2">
+                      {shouldShowGap && (
+                        <span className="px-1 text-sm text-gray-400">...</span>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={
+                          page === safeCurrentPage
+                            ? "bg-[#B71C1C] text-white border-[#B71C1C]"
+                            : ""
+                        }
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    </div>
+                  );
+                })}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safeCurrentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(page + 1, totalPages))
+                  }
+                >
                   Sau
                 </Button>
               </div>
