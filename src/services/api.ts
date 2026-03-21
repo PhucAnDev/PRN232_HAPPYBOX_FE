@@ -1,7 +1,10 @@
 import axios from "axios";
 
+import { API_BASE_URL } from "@/constants/env";
+import { STORAGE_KEYS } from "@/constants/storage";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "https://prn232.onrender.com/api",
+  baseURL: API_BASE_URL,
   timeout: 60000, // 60s to handle Render free tier cold start
   headers: {
     "Content-Type": "application/json",
@@ -9,10 +12,10 @@ const api = axios.create({
 });
 
 // ============ REQUEST INTERCEPTOR ============
-// Tự động gắn Access Token vào mỗi request
+// Tá»± Ä‘á»™ng gáº¯n Access Token vÃ o má»—i request
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -22,44 +25,50 @@ api.interceptors.request.use(
 );
 
 // ============ RESPONSE INTERCEPTOR ============
-// Xử lý lỗi tập trung
+// Xá»­ lÃ½ lá»—i táº­p trung
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
 
-    // 401: Token hết hạn → thử refresh token
+    // 401: Token háº¿t háº¡n â†’ thá»­ refresh token
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const accessToken = localStorage.getItem("accessToken");
-        const refreshToken = localStorage.getItem("refreshToken");
+        const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
 
         if (accessToken && refreshToken) {
-          const res = await axios.post(
-            `${import.meta.env.VITE_API_URL || "https://prn232.onrender.com/api"}/auth/refresh-token`,
-            { accessToken, refreshToken },
-          );
-          const newToken = res.data.data.accessToken;
-          localStorage.setItem("accessToken", newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          const res = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+            accessToken,
+            refreshToken,
+          });
+          const newAccessToken = res.data.data.accessToken;
+          const newRefreshToken = res.data.data.refreshToken;
+
+          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
+          if (newRefreshToken) {
+            localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+          }
+
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return api(originalRequest);
         }
       } catch {
-        // Refresh thất bại → logout
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        window.location.href = "/";
+        // Refresh tháº¥t báº¡i â†’ logout
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+        window.location.hash = "#/";
       }
     }
 
     if (status === 403) {
-      console.error("Bạn không có quyền truy cập!");
+      console.error("Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p!");
     }
 
     if (status === 500) {
-      console.error("Lỗi server, vui lòng thử lại sau!");
+      console.error("Lá»—i server, vui lÃ²ng thá»­ láº¡i sau!");
     }
 
     return Promise.reject(error);
