@@ -29,10 +29,7 @@ import { Input } from "@/components/ui/input";
 import useOrders from "@/hooks/useOrders";
 import useUsers from "@/hooks/useUsers";
 import type { UserResponse } from "@/services/userService";
-import type {
-  OrderResponse,
-  OrderStatus,
-} from "@/services/orderService";
+import { OrderStatus, type OrderResponse } from "@/services/orderService";
 
 interface Customer {
   id: string;

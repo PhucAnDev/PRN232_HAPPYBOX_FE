@@ -33,12 +33,47 @@ const initialState: OrderState = {
   error: null,
 };
 
+const normalizeOrderList = (payload: unknown): OrderResponse[] => {
+  if (Array.isArray(payload)) {
+    return payload as OrderResponse[];
+  }
+
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: OrderResponse[] }).data;
+  }
+
+  return [];
+};
+
+const normalizeOrderDetail = (payload: unknown): OrderResponse | null => {
+  if (payload && typeof payload === "object") {
+    if ("id" in (payload as Record<string, unknown>)) {
+      return payload as OrderResponse;
+    }
+
+    const nestedData = (payload as { data?: unknown }).data;
+    if (
+      nestedData &&
+      typeof nestedData === "object" &&
+      "id" in (nestedData as Record<string, unknown>)
+    ) {
+      return nestedData as OrderResponse;
+    }
+  }
+
+  return null;
+};
+
 export const fetchAllOrders = createAsyncThunk(
   "orders/fetchAllOrders",
   async (_, { rejectWithValue }) => {
     try {
       const response = await orderService.getAll();
-      return response.data.data;
+      return normalizeOrderList(response.data.data);
     } catch (error) {
       return rejectWithValue(
         getErrorMessage(error, "Khong the tai danh sach don hang"),
@@ -52,7 +87,7 @@ export const fetchUserOrders = createAsyncThunk(
   async (userId: string, { rejectWithValue }) => {
     try {
       const response = await orderService.getByUserId(userId);
-      return response.data.data;
+      return normalizeOrderList(response.data.data);
     } catch (error) {
       return rejectWithValue(
         getErrorMessage(error, "Khong the tai don hang cua nguoi dung"),
@@ -67,11 +102,23 @@ export const fetchOrderDetail = createAsyncThunk(
     try {
       try {
         const response = await orderService.getById(orderId);
-        return response.data.data;
+        const order = normalizeOrderDetail(response.data.data);
+
+        if (!order) {
+          throw new Error("Du lieu chi tiet don hang khong hop le");
+        }
+
+        return order;
       } catch {
         const fallbackResponse =
           await paymentService.getOrderSnapshot<OrderResponse>(orderId);
-        return fallbackResponse.data.data;
+        const order = normalizeOrderDetail(fallbackResponse.data.data);
+
+        if (!order) {
+          throw new Error("Du lieu chi tiet don hang khong hop le");
+        }
+
+        return order;
       }
     } catch (error) {
       return rejectWithValue(

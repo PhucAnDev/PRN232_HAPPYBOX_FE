@@ -23,12 +23,7 @@ import { Input } from "@/components/ui/input";
 import useCatalog from "@/hooks/useCatalog";
 import useOrders from "@/hooks/useOrders";
 import useUsers from "@/hooks/useUsers";
-import type {
-  OrderResponse,
-  OrderStatus,
-} from "@/services/orderService";
-import { orderStatusLabels, orderStatusColors } from "@/services/orderService";
-import type { UserResponse } from "@/services/userService";
+import { OrderStatus } from "@/services/orderService";
 import { CreateOrder } from "./CreateOrder";
 
 interface Order {
