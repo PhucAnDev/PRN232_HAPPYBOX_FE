@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import useCart from "@/hooks/useCart";
@@ -15,6 +15,9 @@ export function MiniCartSidebar({
   onNavigate,
 }: MiniCartSidebarProps) {
   const { items: cartItems, subTotal, isLoading, fetchCart, updateItem, removeItem } = useCart();
+  const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>(
+    {},
+  );
 
   // Fetch cart từ API khi sidebar mở lần đầu / mỗi khi mở
   useEffect(() => {
@@ -22,6 +25,14 @@ export function MiniCartSidebar({
       fetchCart();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setQuantityInputs(
+      Object.fromEntries(
+        cartItems.map((item) => [item.id, item.quantity.toString()]),
+      ),
+    );
+  }, [cartItems]);
 
   // Lock body scroll when sidebar is open
   useEffect(() => {
@@ -51,7 +62,49 @@ export function MiniCartSidebar({
 
   const handleUpdateQuantity = (id: string, currentQty: number, delta: number) => {
     const newQty = Math.max(1, currentQty + delta);
+    setQuantityInputs((previous) => ({
+      ...previous,
+      [id]: newQty.toString(),
+    }));
     updateItem(id, newQty);
+  };
+
+  const handleQuantityInputChange = (id: string, value: string) => {
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    setQuantityInputs((previous) => ({
+      ...previous,
+      [id]: value,
+    }));
+  };
+
+  const handleQuantityInputCommit = (id: string, currentQty: number) => {
+    const rawValue = quantityInputs[id]?.trim() ?? "";
+
+    if (!rawValue) {
+      setQuantityInputs((previous) => ({
+        ...previous,
+        [id]: currentQty.toString(),
+      }));
+      return;
+    }
+
+    const parsedValue = Number(rawValue);
+    const nextQty =
+      Number.isFinite(parsedValue) && parsedValue > 0
+        ? Math.max(1, Math.floor(parsedValue))
+        : currentQty;
+
+    setQuantityInputs((previous) => ({
+      ...previous,
+      [id]: nextQty.toString(),
+    }));
+
+    if (nextQty !== currentQty) {
+      updateItem(id, nextQty);
+    }
   };
 
   const handleRemoveItem = (id: string) => {
@@ -163,9 +216,28 @@ export function MiniCartSidebar({
                         >
                           <Minus className="h-4 w-4 text-gray-600" />
                         </button>
-                        <span className="px-4 py-1 text-sm font-semibold min-w-[40px] text-center">
-                          {item.quantity}
-                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={
+                            quantityInputs[item.id] ?? item.quantity.toString()
+                          }
+                          onChange={(e) =>
+                            handleQuantityInputChange(item.id, e.target.value)
+                          }
+                          onBlur={() =>
+                            handleQuantityInputCommit(item.id, item.quantity)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleQuantityInputCommit(item.id, item.quantity);
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="w-12 border-x border-gray-200 bg-transparent px-2 py-1 text-center text-sm font-semibold text-gray-900 outline-none"
+                          aria-label="Nhập số lượng"
+                        />
                         <button
                           onClick={() => handleUpdateQuantity(item.id, item.quantity, 1)}
                           className="p-1.5 hover:bg-gray-100 transition-colors"
