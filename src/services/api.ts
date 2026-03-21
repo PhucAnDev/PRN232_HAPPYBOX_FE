@@ -1,7 +1,9 @@
 import axios from "axios";
 
 import { API_BASE_URL } from "@/constants/env";
+import { APP_PAGES } from "@/constants/pages";
 import { STORAGE_KEYS } from "@/constants/storage";
+import { getPathForPage } from "@/utils/appRouter";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -59,7 +61,7 @@ api.interceptors.response.use(
         // Refresh tháº¥t báº¡i â†’ logout
         localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        window.location.hash = "#/";
+        window.location.assign(getPathForPage(APP_PAGES.HOME));
       }
     }
 

@@ -4,10 +4,12 @@ import { CheckCircle, XCircle, Loader2, Home, ClipboardList } from "lucide-react
 import { OrderSuccess } from "@/components/common/OrderSuccess";
 import type { OrderData } from "@/components/common/OrderSuccess";
 import { Button } from "@/components/ui/button";
+import { APP_PAGES } from "@/constants/pages";
 import { STORAGE_KEYS } from "@/constants/storage";
 import useOrders from "@/hooks/useOrders";
 import { emptyCart } from "@/store/slices/cartSlice";
 import type { AppDispatch } from "@/store/store";
+import { getPathForPage } from "@/utils/appRouter";
 
 interface PaymentReturnPageProps {
   onNavigate?: (page: string) => void;
@@ -68,8 +70,7 @@ function resolveOrderIdFromReturnUrl(): string | null {
 }
 
 function cleanupReturnUrl() {
-  const cleanHash = window.location.hash || "#/payment-return";
-  const cleanUrl = `${window.location.pathname}${cleanHash}`;
+  const cleanUrl = getPathForPage(APP_PAGES.PAYMENT_RETURN);
   window.history.replaceState({}, document.title, cleanUrl);
 }
 

@@ -17,6 +17,8 @@ import { HampersManagement } from "@/components/admin/HampersManagement";
 import { CustomGiftManagement } from "@/components/admin/CustomGiftManagement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { APP_PAGES } from "@/constants/pages";
+import { getPathForPage } from "@/utils/appRouter";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
 import useAuth from "@/hooks/useAuth";
 import {
@@ -56,6 +58,119 @@ interface AdminDashboardProps {
   onNavigate?: (page: string) => void;
 }
 
+type AdminMenuId =
+  | "dashboard"
+  | "products"
+  | "products-gift-box"
+  | "products-individual"
+  | "products-custom"
+  | "orders"
+  | "customers"
+  | "vouchers"
+  | "reports"
+  | "settings";
+
+interface AdminRouteState {
+  activeMenu: AdminMenuId;
+  isProductsExpanded: boolean;
+  activeProductSubmenu: AdminMenuId | null;
+}
+
+const ADMIN_BASE_PATH = getPathForPage(APP_PAGES.ADMIN);
+
+const ADMIN_MENU_PATHS: Record<AdminMenuId, string> = {
+  dashboard: ADMIN_BASE_PATH,
+  products: `${ADMIN_BASE_PATH}/san-pham`,
+  "products-gift-box": `${ADMIN_BASE_PATH}/san-pham/gio-qua`,
+  "products-individual": `${ADMIN_BASE_PATH}/san-pham/san-pham-le`,
+  "products-custom": `${ADMIN_BASE_PATH}/san-pham/thiet-ke-rieng`,
+  orders: `${ADMIN_BASE_PATH}/don-hang`,
+  customers: `${ADMIN_BASE_PATH}/khach-hang`,
+  vouchers: `${ADMIN_BASE_PATH}/ma-giam-gia`,
+  reports: `${ADMIN_BASE_PATH}/bao-cao`,
+  settings: `${ADMIN_BASE_PATH}/cai-dat`,
+};
+
+function getAdminRouteState(pathname: string): AdminRouteState {
+  const decodedPath = decodeURIComponent(pathname);
+  const relativePath = decodedPath
+    .replace(new RegExp(`^${ADMIN_BASE_PATH}`), "")
+    .replace(/^\/+|\/+$/g, "");
+
+  switch (relativePath) {
+    case "":
+      return {
+        activeMenu: "dashboard",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "san-pham":
+    case "san-pham/gio-qua":
+    case "products":
+    case "products-gift-box":
+      return {
+        activeMenu: "products-gift-box",
+        isProductsExpanded: true,
+        activeProductSubmenu: "products-gift-box",
+      };
+    case "san-pham/san-pham-le":
+    case "products-individual":
+      return {
+        activeMenu: "products-individual",
+        isProductsExpanded: true,
+        activeProductSubmenu: "products-individual",
+      };
+    case "san-pham/thiet-ke-rieng":
+    case "products-custom":
+      return {
+        activeMenu: "products-custom",
+        isProductsExpanded: true,
+        activeProductSubmenu: "products-custom",
+      };
+    case "don-hang":
+    case "orders":
+      return {
+        activeMenu: "orders",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "khach-hang":
+    case "customers":
+      return {
+        activeMenu: "customers",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "ma-giam-gia":
+    case "vouchers":
+      return {
+        activeMenu: "vouchers",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "bao-cao":
+    case "reports":
+      return {
+        activeMenu: "reports",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "cai-dat":
+    case "settings":
+      return {
+        activeMenu: "settings",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    default:
+      return {
+        activeMenu: "dashboard",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+  }
+}
+
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { user, logout } = useAuth();
   const {
@@ -66,27 +181,33 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     loading,
     fetchSnapshot,
   } = useDashboard();
-  const [activeMenu, setActiveMenu] = useState(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith("#/admin/")) {
-      const sub = hash.slice("#/admin/".length);
-      if (sub) return sub;
-    }
-    return "dashboard";
-  });
-  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  const [isProductsExpanded, setIsProductsExpanded] = useState(() => {
-    return window.location.hash.startsWith("#/admin/products-");
-  });
-  const [activeProductSubmenu, setActiveProductSubmenu] = useState<string | null>(() => {
-    const hash = window.location.hash;
-    if (hash.startsWith("#/admin/products-")) return hash.slice("#/admin/".length);
-    return null;
-  });
+  const initialRouteState = getAdminRouteState(window.location.pathname);
+  const [activeMenu, setActiveMenu] = useState<AdminMenuId>(
+    initialRouteState.activeMenu,
+  );
+  const [isProductsExpanded, setIsProductsExpanded] = useState(
+    initialRouteState.isProductsExpanded,
+  );
+  const [activeProductSubmenu, setActiveProductSubmenu] = useState<AdminMenuId | null>(
+    initialRouteState.activeProductSubmenu,
+  );
   const dashboardData: DashboardSummaryResponse | null = summary;
   const salesTrendData: SalesTrendDto[] = salesTrend;
   const orderStatusData: OrderStatusChartDto[] = orderStatus;
   const recentOrdersApi: RecentOrderDto[] = recentOrders;
+
+  useEffect(() => {
+    const syncRouteState = () => {
+      const nextRouteState = getAdminRouteState(window.location.pathname);
+      setActiveMenu(nextRouteState.activeMenu);
+      setIsProductsExpanded(nextRouteState.isProductsExpanded);
+      setActiveProductSubmenu(nextRouteState.activeProductSubmenu);
+    };
+
+    syncRouteState();
+    window.addEventListener("popstate", syncRouteState);
+    return () => window.removeEventListener("popstate", syncRouteState);
+  }, []);
 
   // Fetch dashboard data on mount
   useEffect(() => {
@@ -176,25 +297,37 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     { id: "products-custom", label: "Sản Phẩm Thiết Kế", icon: Sparkles },
   ];
 
-  const handleMenuClick = (menuId: string) => {
+  const updateAdminPath = (menuId: AdminMenuId) => {
+    const nextPath = ADMIN_MENU_PATHS[menuId];
+    const nextRouteState = getAdminRouteState(nextPath);
+
+    setActiveMenu(nextRouteState.activeMenu);
+    setIsProductsExpanded(nextRouteState.isProductsExpanded);
+    setActiveProductSubmenu(nextRouteState.activeProductSubmenu);
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, document.title, nextPath);
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleMenuClick = (menuId: AdminMenuId) => {
     if (menuId === "products") {
-      setIsProductsExpanded(!isProductsExpanded);
-      if (!isProductsExpanded) {
-        setActiveMenu("products");
-        window.location.hash = "#/admin/products";
+      if (isProductsExpanded) {
+        setIsProductsExpanded(false);
+      } else {
+        updateAdminPath(activeProductSubmenu ?? "products-gift-box");
       }
     } else {
-      setActiveMenu(menuId);
-      setIsProductsExpanded(false);
-      setActiveProductSubmenu(null);
-      window.location.hash = menuId === "dashboard" ? "#/admin" : `#/admin/${menuId}`;
+      updateAdminPath(menuId);
     }
   };
 
-  const handleSubmenuClick = (submenuId: string) => {
-    setActiveProductSubmenu(submenuId);
-    setActiveMenu(submenuId);
-    window.location.hash = `#/admin/${submenuId}`;
+  const handleSubmenuClick = (
+    submenuId: "products-gift-box" | "products-individual" | "products-custom",
+  ) => {
+    updateAdminPath(submenuId);
   };
 
   return (
@@ -215,7 +348,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <nav className="flex-1 py-6">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeMenu === item.id;
+            const isActive =
+              activeMenu === item.id ||
+              (item.id === "products" && activeProductSubmenu !== null);
             return (
               <div key={item.id}>
                 <button

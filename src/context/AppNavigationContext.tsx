@@ -8,11 +8,12 @@ import {
 
 import { APP_PAGES, type AppPage } from "@/constants/pages";
 import {
-  getHashForPage,
+  getCanonicalUrl,
+  getPathForPage,
   getPageFromLocation,
   isAppPage,
   persistCurrentPage,
-} from "@/utils/hashRouter";
+} from "@/utils/appRouter";
 
 interface AppNavigationContextValue {
   currentPage: AppPage;
@@ -39,35 +40,41 @@ export function AppNavigationProvider({
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
-    persistCurrentPage(currentPage);
+    const nextPage = getPageFromLocation(window.location);
+    const canonicalUrl = getCanonicalUrl(window.location, nextPage);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
 
-    if (!window.location.hash || window.location.hash === "#") {
-      window.location.hash = getHashForPage(currentPage);
+    setCurrentPage(nextPage);
+    persistCurrentPage(nextPage);
+
+    if (currentUrl !== canonicalUrl) {
+      window.history.replaceState({}, document.title, canonicalUrl);
     }
   }, []);
 
   useEffect(() => {
-    const handleHashChange = () => {
+    const handlePopState = () => {
       const nextPage = getPageFromLocation(window.location);
       setCurrentPage(nextPage);
       persistCurrentPage(nextPage);
     };
 
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   const navigate = (page: string) => {
     const nextPage = isAppPage(page) ? page : APP_PAGES.HOME;
+    const nextPath = getPathForPage(nextPage);
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
 
     setCurrentPage(nextPage);
     setIsCartOpen(false);
     persistCurrentPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    const nextHash = getHashForPage(nextPage);
-    if (window.location.hash !== nextHash) {
-      window.location.hash = nextHash;
+    if (currentUrl !== nextPath) {
+      window.history.pushState({}, document.title, nextPath);
     }
   };
 
