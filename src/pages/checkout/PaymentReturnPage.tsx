@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { APP_PAGES } from "@/constants/pages";
 import { STORAGE_KEYS } from "@/constants/storage";
 import useOrders from "@/hooks/useOrders";
-import { emptyCart } from "@/store/slices/cartSlice";
+import { emptyCart, removeCartItems } from "@/store/slices/cartSlice";
 import type { AppDispatch } from "@/store/store";
 import { getPathForPage } from "@/utils/appRouter";
 
@@ -67,6 +67,27 @@ function resolveOrderIdFromReturnUrl(): string | null {
   }
 
   return null;
+}
+
+function getStoredCheckoutItemIds(): string[] {
+  const storedItemIds = sessionStorage.getItem(
+    STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS,
+  );
+
+  if (!storedItemIds) {
+    return [];
+  }
+
+  try {
+    const parsedItemIds = JSON.parse(storedItemIds);
+    return Array.isArray(parsedItemIds)
+      ? parsedItemIds.filter(
+          (itemId): itemId is string => typeof itemId === "string",
+        )
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function cleanupReturnUrl() {
@@ -129,6 +150,7 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
 
           if (response.data.data.resultCode === 0) {
             sessionStorage.removeItem(STORAGE_KEYS.MOMO_ORDER_ID);
+            const selectedCheckoutItemIds = getStoredCheckoutItemIds();
 
             let resolvedOrderData: OrderData | null = null;
 
@@ -146,12 +168,18 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
               console.warn("Failed to fetch order details");
             }
 
-            // Keep cart badge in sync after coming back from MoMo.
+            // Keep cart badge in sync only after payment is confirmed.
             try {
-              await dispatch(emptyCart());
+              if (selectedCheckoutItemIds.length > 0) {
+                await dispatch(removeCartItems(selectedCheckoutItemIds));
+              } else {
+                await dispatch(emptyCart());
+              }
             } catch {
               // Ignore cart cleanup errors on the return screen.
             }
+
+            sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS);
 
             if (resolvedOrderData) {
               setOrderData(resolvedOrderData);
@@ -265,7 +293,10 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
           <Button
             variant="outline"
             className="w-full border-2 border-gray-300 font-bold py-4"
-            onClick={() => onNavigate?.("home")}
+            onClick={() => {
+              sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS);
+              onNavigate?.("home");
+            }}
           >
             <Home className="h-5 w-5 mr-2" />
             Ve trang chu

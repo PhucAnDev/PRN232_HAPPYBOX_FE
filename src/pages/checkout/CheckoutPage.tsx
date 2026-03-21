@@ -94,7 +94,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
     isLoading: cartLoading,
     fetchCart,
     checkout,
-    emptyCart,
   } = useCart();
   const { user, isLoggedIn } = useAuth();
   const fetch = async (url: string) => {
@@ -206,7 +205,13 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
 
   useEffect(() => {
     return () => {
-      sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS);
+      const hasPendingMomoOrder = sessionStorage.getItem(
+        STORAGE_KEYS.MOMO_ORDER_ID,
+      );
+
+      if (!hasPendingMomoOrder) {
+        sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS);
+      }
     };
   }, []);
 
@@ -418,9 +423,6 @@ export function CheckoutPage({ onNavigate }: CheckoutPageProps) {
         });
 
         if (response.data.success && response.data.data?.payUrl) {
-          // ✅ FIX: Clear cart BEFORE redirect to MoMo
-          await emptyCart();
-          sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_SELECTED_ITEM_IDS);
           sessionStorage.setItem(
             STORAGE_KEYS.MOMO_ORDER_ID,
             response.data.data.orderId,
