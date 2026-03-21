@@ -128,8 +128,9 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
           setPaymentData(response.data.data);
 
           if (response.data.data.resultCode === 0) {
-            setStatus("success");
             sessionStorage.removeItem(STORAGE_KEYS.MOMO_ORDER_ID);
+
+            let resolvedOrderData: OrderData | null = null;
 
             // Fetch order details so we can render the full success screen.
             try {
@@ -138,7 +139,7 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
               );
 
               if (orderRes.data.success && orderRes.data.data) {
-                setOrderData(orderRes.data.data);
+                resolvedOrderData = orderRes.data.data;
               }
             } catch {
               // If order fetch fails, we still keep the payment success state.
@@ -151,6 +152,12 @@ export function PaymentReturnPage({ onNavigate }: PaymentReturnPageProps) {
             } catch {
               // Ignore cart cleanup errors on the return screen.
             }
+
+            if (resolvedOrderData) {
+              setOrderData(resolvedOrderData);
+            }
+
+            setStatus("success");
           } else {
             sessionStorage.removeItem(STORAGE_KEYS.MOMO_ORDER_ID);
             setStatus("failed");
