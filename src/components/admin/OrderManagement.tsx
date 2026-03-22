@@ -7,8 +7,6 @@ import {
   Printer,
   ChevronDown,
   X,
-  Check,
-  PackageCheck,
   MapPin,
   Mail,
   Phone,
@@ -354,19 +352,11 @@ export function OrderManagement() {
 
     const config = statusConfig[status as keyof typeof statusConfig];
     return (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          const order = orders.find((o) => o.orderStatus === status);
-          if (order) {
-            setSelectedOrder(order);
-            setShowStatusModal(true);
-          }
-        }}
-        className={`px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.text} hover:opacity-80 transition-opacity cursor-pointer`}
+      <span
+        className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}
       >
         {config.label}
-      </button>
+      </span>
     );
   };
 
@@ -461,11 +451,6 @@ export function OrderManagement() {
       console.error("Error updating order status:", err);
       alert(`Lỗi khi cập nhật trạng thái: ${err?.message || "Unknown error"}`);
     }
-  };
-
-  const handleQuickStatusChange = (order: Order) => {
-    setSelectedOrder(order);
-    setShowStatusModal(true);
   };
 
   const filteredOrders = orders.filter((order) => {
@@ -808,12 +793,7 @@ export function OrderManagement() {
                         {getPaymentBadge(order.paymentStatus)}
                       </td>
                       <td className="px-4 py-4 align-top text-center">
-                        <div
-                          className="inline-flex"
-                          onClick={() => handleQuickStatusChange(order)}
-                        >
-                          {getStatusBadge(order.orderStatus)}
-                        </div>
+                        {getStatusBadge(order.orderStatus)}
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="flex items-center justify-center gap-2">
@@ -822,6 +802,7 @@ export function OrderManagement() {
                             title="Xem chi tiết"
                             onClick={() => {
                               setSelectedOrder(order);
+                              setNewStatus(order.orderStatus);
                               setShowDetailModal(true);
                             }}
                           >
