@@ -51,6 +51,7 @@ interface Hamper {
   description: string;
   basePrice: number;
   isActive: boolean;
+  isCustom: boolean;
   categoryId: string;
   categoryName: string;
   giftBoxComponentConfigId: string | null;
@@ -77,6 +78,7 @@ function mapToHamper(g: GiftBoxResponse): Hamper {
     description: g.description,
     basePrice: g.basePrice,
     isActive: g.isActive,
+    isCustom: g.isCustom,
     categoryId: g.categoryId,
     categoryName: g.categoryName || "",
     giftBoxComponentConfigId: g.giftBoxComponentConfigId || null,
@@ -230,7 +232,13 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
           productService.getAll(),
         ]);
         if (hampersRes.data.success) {
-          setHampers(sortByDate(hampersRes.data.data.map(mapToHamper)));
+          setHampers(
+            sortByDate(
+              hampersRes.data.data
+                .filter((giftBox) => !giftBox.isCustom)
+                .map(mapToHamper),
+            ),
+          );
         }
         if (categoriesRes.data.success) {
           setCategories(
@@ -394,7 +402,9 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
         imageUrls: formData.images,
       });
       if (res.data.success) {
-        setHampers(sortByDate([mapToHamper(res.data.data), ...hampers]));
+        if (!res.data.data.isCustom) {
+          setHampers(sortByDate([mapToHamper(res.data.data), ...hampers]));
+        }
         setIsAddModalOpen(false);
       }
     } catch (err) {
@@ -423,11 +433,13 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
         imageUrls: formData.images,
       });
       if (res.data.success) {
-        setHampers(
-          sortByDate(hampers.map((h) =>
-            h.id === selectedHamper.id ? mapToHamper(res.data.data) : h
-          ))
-        );
+        const nextHampers = hampers.filter((h) => h.id !== selectedHamper.id);
+
+        if (!res.data.data.isCustom) {
+          nextHampers.push(mapToHamper(res.data.data));
+        }
+
+        setHampers(sortByDate(nextHampers));
         setIsEditModalOpen(false);
       }
     } catch (err) {

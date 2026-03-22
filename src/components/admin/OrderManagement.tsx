@@ -69,7 +69,7 @@ export function OrderManagement() {
     updateOrderStatus,
     fetchOrderDetail,
   } = useOrders();
-  const { fetchProductDetail } = useCatalog();
+  const { fetchProductDetail, fetchGiftBoxDetail } = useCatalog();
   const { fetchUserDetail } = useUsers();
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -121,7 +121,19 @@ export function OrderManagement() {
       const data = await fetchProductDetail(id);
       return {
         data: {
+          success: true,
           data: data.product,
+        },
+      };
+    },
+  };
+  const giftBoxService = {
+    getById: async (id: string) => {
+      const data = await fetchGiftBoxDetail(id);
+      return {
+        data: {
+          success: true,
+          data,
         },
       };
     },
@@ -196,24 +208,41 @@ export function OrderManagement() {
           // Map order details with product info
           const items = await Promise.all(
             apiOrder.orderDetails.map(async (detail) => {
-              let productName = "Unknown Product";
+              let productName = detail.giftBoxId
+                ? "Gio qua"
+                : detail.productId
+                  ? "San pham"
+                  : "Mat hang";
               let productImage = "🎁";
 
               try {
-                const prodResponse = await productService.getById(
-                  detail.productId,
-                );
-                if (prodResponse.data.success) {
-                  productName = prodResponse.data.data.name;
-                  // Get first image if available
-                  const images = prodResponse.data.data.images || [];
-                  if (images.length > 0 && images[0].url) {
-                    productImage = images[0].url;
+                if (detail.productId) {
+                  const prodResponse = await productService.getById(
+                    detail.productId,
+                  );
+                  if (prodResponse.data.success) {
+                    productName = prodResponse.data.data.name || productName;
+                    const images = prodResponse.data.data.images || [];
+                    if (images.length > 0 && images[0].url) {
+                      productImage = images[0].url;
+                    }
+                  }
+                } else if (detail.giftBoxId) {
+                  const giftBoxResponse = await giftBoxService.getById(
+                    detail.giftBoxId,
+                  );
+                  if (giftBoxResponse.data.success) {
+                    productName =
+                      giftBoxResponse.data.data.name || productName;
+                    const images = giftBoxResponse.data.data.images || [];
+                    if (images.length > 0 && images[0].url) {
+                      productImage = images[0].url;
+                    }
                   }
                 }
               } catch (err) {
                 console.warn(
-                  `Failed to fetch product ${detail.productId}`,
+                  `Failed to fetch order item ${detail.productId || detail.giftBoxId}`,
                   err,
                 );
               }
