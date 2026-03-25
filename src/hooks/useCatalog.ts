@@ -22,6 +22,7 @@ import {
   fetchProductImages,
   fetchProductsCatalog,
   fetchUserGiftBoxes,
+  generateExclusiveCustomBasketDetails,
   generateCustomBasketPreview,
   updateCategoryEntity,
   updateGiftBoxEntity,
@@ -88,6 +89,9 @@ const useCatalog = () => {
     confirmCustomBasket: (
       payload: Parameters<typeof confirmCustomBasketDesign>[0],
     ) => dispatch(confirmCustomBasketDesign(payload)).unwrap(),
+    generateExclusiveDetails: (
+      payload: Parameters<typeof generateExclusiveCustomBasketDetails>[0],
+    ) => dispatch(generateExclusiveCustomBasketDetails(payload)).unwrap(),
     clearErrors: () => dispatch(clearCatalogError()),
     clearUploadedImages: () => dispatch(clearUploadedImages()),
     clearCustomBasketState: () => dispatch(clearCustomBasketState()),

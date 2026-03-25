@@ -40,6 +40,11 @@ export interface ConfirmCustomBasketRequest {
   products: CustomBasketProduct[];
 }
 
+export interface GenerateExclusiveDetailsRequest {
+  relativeImagePath: string;
+  userPrompt: string;
+}
+
 const customBasketService = {
   // Lấy tất cả sản phẩm
   async getAllProducts(): Promise<Product[]> {
@@ -69,6 +74,17 @@ const customBasketService = {
   async confirmCustomBasket(request: ConfirmCustomBasketRequest): Promise<string> {
     const response = await api.post("/custom-baskets/confirm", request);
     return response.data.data; // Returns giftBoxId
+  },
+
+  // Chỉnh tiếp ảnh giỏ quà theo prompt người dùng
+  async generateExclusiveDetails(
+    request: GenerateExclusiveDetailsRequest,
+  ): Promise<string> {
+    const response = await api.post(
+      "/custom-baskets/generate-exclusive-details",
+      request,
+    );
+    return response.data.data; // Returns new preview image URL
   },
 };
 

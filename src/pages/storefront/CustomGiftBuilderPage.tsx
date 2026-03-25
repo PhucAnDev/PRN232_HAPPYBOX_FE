@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Check, X, Plus, ChevronLeft, Sparkles, Minus, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { APP_PAGES } from "@/constants/pages";
 import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
@@ -46,8 +47,39 @@ const toPreviewPath = (url: string) => {
   }
 };
 
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+
+const extractTargetQuantityFromPrompt = (prompt: string): number | null => {
+  const normalized = prompt.toLowerCase();
+
+  // Matches patterns like: "tu 4 thanh 2", "từ 4 thành 2"
+  const fromToMatch = normalized.match(/(?:tu|từ)\s*(\d+)\s*(?:san\s*pham|sản\s*phẩm)?\s*(?:thanh|thành)\s*(\d+)/i);
+  if (fromToMatch) {
+    const target = Number(fromToMatch[2]);
+    return Number.isFinite(target) ? Math.max(1, target) : null;
+  }
+
+  // Matches patterns like: "giam xuong 2", "còn 2 sản phẩm"
+  const toMatch = normalized.match(/(?:xuong|xuống|con|còn|thanh|thành)\s*(\d+)\s*(?:san\s*pham|sản\s*phẩm)?/i);
+  if (toMatch) {
+    const target = Number(toMatch[1]);
+    return Number.isFinite(target) ? Math.max(1, target) : null;
+  }
+
+  return null;
+};
+
 export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
-  const { generateCustomBasketPreview, confirmCustomBasket } = useCatalog();
+  const {
+    generateCustomBasketPreview,
+    confirmCustomBasket,
+    generateExclusiveDetails,
+  } = useCatalog();
   const { isLoggedIn } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPackaging, setSelectedPackaging] = useState<string | null>(null);
@@ -58,6 +90,11 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [generatedGiftImage, setGeneratedGiftImage] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingExclusive, setIsGeneratingExclusive] = useState(false);
+  const [exclusivePrompt, setExclusivePrompt] = useState("");
+  const [showQuantityTargetPicker, setShowQuantityTargetPicker] = useState(false);
+  const [targetQuantityFromPrompt, setTargetQuantityFromPrompt] = useState<number | null>(null);
+  const [productIdForQuantityUpdate, setProductIdForQuantityUpdate] = useState<string>("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedGiftBoxId, setConfirmedGiftBoxId] = useState<string | null>(null);
   const [showConfirmSuccess, setShowConfirmSuccess] = useState(false);
@@ -82,6 +119,18 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       if (url === "/custom-baskets/confirm") {
         const data = await confirmCustomBasket(
           payload as Parameters<typeof confirmCustomBasket>[0],
+        );
+        return {
+          data: {
+            success: true,
+            data,
+          },
+        } as T;
+      }
+
+      if (url === "/custom-baskets/generate-exclusive-details") {
+        const data = await generateExclusiveDetails(
+          payload as Parameters<typeof generateExclusiveDetails>[0],
         );
         return {
           data: {
@@ -201,6 +250,25 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       const quantity = item.quantity || 1;
       return sum + (item.price * quantity);
     }, 0);
+  };
+
+  const applyQuantityForProductIds = (productIds: string[], quantity: number) => {
+    setProductQuantities((prev) => {
+      const next = { ...prev };
+      productIds.forEach((id) => {
+        next[id] = quantity;
+      });
+      return next;
+    });
+  };
+
+  const handleApplyPickedQuantity = () => {
+    if (!targetQuantityFromPrompt || !productIdForQuantityUpdate) return;
+    applyQuantityForProductIds([productIdForQuantityUpdate], targetQuantityFromPrompt);
+    setShowQuantityTargetPicker(false);
+    setTargetQuantityFromPrompt(null);
+    setProductIdForQuantityUpdate("");
+    toast.success("Đã cập nhật số lượng sản phẩm theo lựa chọn của bạn.");
   };
 
   const handleNextStep = () => {
@@ -332,6 +400,71 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       // generatedGiftImage stays null — UI shows nothing
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const handleGenerateExclusiveDetails = async () => {
+    if (!generatedGiftImage) return;
+
+    if (!isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.CUSTOM_BUILDER,
+        "Vui lòng đăng nhập để chỉnh sửa ảnh giỏ quà bằng AI.",
+      );
+      return;
+    }
+
+    const trimmedPrompt = exclusivePrompt.trim();
+    if (!trimmedPrompt) {
+      toast.error("Vui lòng nhập prompt để AI chỉnh sửa ảnh giỏ quà.");
+      return;
+    }
+
+    setIsGeneratingExclusive(true);
+    setConfirmedGiftBoxId(null);
+    setShowConfirmSuccess(false);
+
+    const targetQuantity = extractTargetQuantityFromPrompt(trimmedPrompt);
+
+    try {
+      const response = await api.post<{ success: boolean; data: string }>(
+        "/custom-baskets/generate-exclusive-details",
+        {
+          relativeImagePath: toPreviewPath(generatedGiftImage),
+          userPrompt: trimmedPrompt,
+        },
+      );
+
+      if (response.data.success && response.data.data) {
+        setGeneratedGiftImage(response.data.data);
+
+        // Keep basket summary quantities aligned with user's prompt when possible.
+        if (targetQuantity !== null && selectedProducts.length > 0) {
+          const mentionedProducts = selectedProducts.filter((productId) => {
+            const product = products.find((p) => p.id === productId);
+            return product
+              ? normalizeText(trimmedPrompt).includes(normalizeText(product.name))
+              : false;
+          });
+
+          if (mentionedProducts.length > 0) {
+            applyQuantityForProductIds(mentionedProducts, targetQuantity);
+          } else if (selectedProducts.length === 1) {
+            applyQuantityForProductIds([selectedProducts[0]], targetQuantity);
+          } else {
+            setTargetQuantityFromPrompt(targetQuantity);
+            setProductIdForQuantityUpdate(selectedProducts[0]);
+            setShowQuantityTargetPicker(true);
+          }
+        }
+
+        toast.success("Đã chỉnh sửa ảnh giỏ quà theo prompt của bạn.");
+      }
+    } catch {
+      toast.error("Không thể chỉnh sửa ảnh. Vui lòng thử lại.");
+    } finally {
+      setIsGeneratingExclusive(false);
     }
   };
 
@@ -716,6 +849,42 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
                           Đây là hình ảnh preview giỏ quà độc bản của bạn
                         </p>
                       </div>
+
+                      <div className="rounded-xl border border-[#D4AF37]/40 bg-white p-4 sm:p-5 mb-6">
+                        <h3 className="font-bold text-[#B71C1C] mb-2 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          Chỉnh tiếp với AI
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Viết prompt để chỉnh chi tiết ảnh giỏ quà, ví dụ: "Thêm nơ đỏ lớn phía trước và làm nền sáng hơn".
+                        </p>
+                        <Textarea
+                          value={exclusivePrompt}
+                          onChange={(event) => setExclusivePrompt(event.target.value)}
+                          placeholder="Nhập prompt chỉnh sửa ảnh giỏ quà..."
+                          className="min-h-[96px] border-[#D4AF37]/40 focus-visible:ring-[#D4AF37]/40"
+                          disabled={isGeneratingExclusive}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-3 w-full border-2 border-[#B71C1C] text-[#B71C1C] hover:bg-[#B71C1C] hover:text-white font-semibold"
+                          onClick={handleGenerateExclusiveDetails}
+                          disabled={isGeneratingExclusive || !exclusivePrompt.trim()}
+                        >
+                          {isGeneratingExclusive ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Đang chỉnh ảnh...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Chỉnh tiếp theo prompt
+                            </>
+                          )}
+                        </Button>
+                      </div>
                       
                       {/* Total and Checkout */}
                       <div className="pt-6 mt-6 border-t-2 border-[#B71C1C]">
@@ -736,7 +905,7 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
                           <Button
                             className="w-full bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C] text-white font-bold py-6 text-lg shadow-xl hover:shadow-2xl transition-all duration-300 disabled:opacity-60"
                             onClick={handleConfirm}
-                            disabled={isConfirming || !!confirmedGiftBoxId}
+                            disabled={isConfirming || isGeneratingExclusive || !!confirmedGiftBoxId}
                           >
                             {isConfirming ? (
                               <>
@@ -953,6 +1122,75 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
             >
               <X className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {showQuantityTargetPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-[#B71C1C] mb-2">
+              Chọn sản phẩm cần đổi số lượng
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Prompt của bạn yêu cầu đổi về
+              {" "}
+              <span className="font-semibold text-[#B71C1C]">
+                {targetQuantityFromPrompt}
+              </span>
+              {" "}
+              sản phẩm nhưng chưa nêu rõ tên. Hãy chọn đúng sản phẩm để tránh cập nhật nhầm.
+            </p>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {selectedProducts.map((productId) => {
+                const product = products.find((p) => p.id === productId);
+                if (!product) return null;
+
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => setProductIdForQuantityUpdate(product.id)}
+                    className={`w-full rounded-xl border p-3 text-left transition-all ${
+                      productIdForQuantityUpdate === product.id
+                        ? "border-[#B71C1C] bg-red-50"
+                        : "border-gray-200 hover:border-[#D4AF37]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-gray-900">{product.name}</span>
+                      <span className="text-sm text-gray-600">
+                        Hiện tại: {productQuantities[product.id] || 1}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowQuantityTargetPicker(false);
+                  setTargetQuantityFromPrompt(null);
+                  setProductIdForQuantityUpdate("");
+                }}
+              >
+                Bỏ qua
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 bg-gradient-to-r from-[#B71C1C] to-[#8B1538] hover:from-[#8B1538] hover:to-[#B71C1C]"
+                onClick={handleApplyPickedQuantity}
+                disabled={!productIdForQuantityUpdate || !targetQuantityFromPrompt}
+              >
+                Áp dụng
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -8,6 +8,7 @@ import categoryService, {
 import customBasketService, {
   ConfirmCustomBasketRequest,
   CreateCustomBasketRequest,
+  GenerateExclusiveDetailsRequest,
 } from "../../services/customBasketService";
 import giftBoxService, {
   CreateGiftBoxRequest,
@@ -451,6 +452,22 @@ export const confirmCustomBasketDesign = createAsyncThunk(
   },
 );
 
+export const generateExclusiveCustomBasketDetails = createAsyncThunk(
+  "catalog/generateExclusiveCustomBasketDetails",
+  async (payload: GenerateExclusiveDetailsRequest, { rejectWithValue }) => {
+    try {
+      const previewUrl = await customBasketService.generateExclusiveDetails(
+        payload,
+      );
+      return normalizePreviewUrl(previewUrl);
+    } catch (error) {
+      return rejectWithValue(
+        getErrorMessage(error, "Khong the chinh sua anh gio qua"),
+      );
+    }
+  },
+);
+
 const upsertProduct = (state: CatalogState, product: ProductResponse) => {
   const images = product.images || state.productImagesByProductId[product.id] || [];
   const nextProduct = {
@@ -716,6 +733,19 @@ const catalogSlice = createSlice({
         state.customBasketGiftBoxId = action.payload;
       })
       .addCase(confirmCustomBasketDesign.rejected, (state, action) => {
+        state.customBasketLoading = false;
+        state.customBasketError = action.payload as string;
+      })
+      .addCase(generateExclusiveCustomBasketDetails.pending, (state) => {
+        state.customBasketLoading = true;
+        state.customBasketError = null;
+      })
+      .addCase(generateExclusiveCustomBasketDetails.fulfilled, (state, action) => {
+        state.customBasketLoading = false;
+        state.customBasketPreviewUrl = action.payload;
+        state.customBasketGiftBoxId = null;
+      })
+      .addCase(generateExclusiveCustomBasketDetails.rejected, (state, action) => {
         state.customBasketLoading = false;
         state.customBasketError = action.payload as string;
       });

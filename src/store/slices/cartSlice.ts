@@ -5,6 +5,7 @@ import type {
   AddToCartRequest,
   CheckoutRequest,
 } from "../../services/cartService";
+import { API_BASE_URL } from "../../constants/env";
 import { getErrorMessage } from "../../utils/errorMessage";
 
 // ====== State ======
@@ -19,6 +20,35 @@ const initialState: CartState = {
   isLoading: false,
   error: null,
 };
+
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+
+const normalizeImageUrl = (url: string | null | undefined) => {
+  if (!url) {
+    return null;
+  }
+
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:")) {
+    return url;
+  }
+
+  return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
+const normalizeCartResponse = (cart: CartResponse): CartResponse => ({
+  ...cart,
+  items: cart.items.map((item) => {
+    const preferredImageUrl =
+      item.displayImageUrl || item.giftBoxImageUrl || item.productImageUrl;
+
+    return {
+      ...item,
+      displayImageUrl: normalizeImageUrl(preferredImageUrl),
+      giftBoxImageUrl: normalizeImageUrl(item.giftBoxImageUrl),
+      productImageUrl: normalizeImageUrl(item.productImageUrl),
+    };
+  }),
+});
 
 // ====== Async Thunks ======
 
@@ -99,7 +129,7 @@ const cartSlice = createSlice({
       })
       .addCase(fetchCart.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.cart = action.payload;
+        state.cart = normalizeCartResponse(action.payload);
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.isLoading = false;
@@ -114,7 +144,7 @@ const cartSlice = createSlice({
       })
       .addCase(addItemToCart.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.cart = action.payload;
+        state.cart = normalizeCartResponse(action.payload);
       })
       .addCase(addItemToCart.rejected, (state, action) => {
         state.isLoading = false;
@@ -125,7 +155,7 @@ const cartSlice = createSlice({
     builder
       .addCase(updateCartItem.fulfilled, (state, action) => {
         state.error = null;
-        state.cart = action.payload;
+        state.cart = normalizeCartResponse(action.payload);
       })
       .addCase(updateCartItem.rejected, (state, action) => {
         state.error =
