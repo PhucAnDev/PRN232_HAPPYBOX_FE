@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AlertCircle,
@@ -17,7 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { APP_PAGES } from "@/constants/pages";
 import { API_BASE_URL } from "@/constants/env";
+import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
 import useOrders from "@/hooks/useOrders";
 import {
@@ -28,6 +30,7 @@ import {
 import type { OrderHistoryResponse, OrderResponse } from "@/services/orderService";
 import type { GiftBoxResponse } from "@/services/giftBoxService";
 import type { ProductResponse } from "@/services/productService";
+import { redirectToLogin } from "@/utils/authRedirect";
 
 interface OrderTrackingProps {
   onNavigate?: (page: string) => void;
@@ -223,12 +226,12 @@ const getItemSnapshot = (
 
 export function OrderTracking({ onNavigate }: OrderTrackingProps) {
   const [orderNumber, setOrderNumber] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const { isLoggedIn } = useAuth();
   const { fetchOrders, fetchOrderDetail } = useOrders();
   const {
     fetchGiftBoxDetail,
@@ -266,6 +269,16 @@ export function OrderTracking({ onNavigate }: OrderTrackingProps) {
     );
   }, [giftBoxDetailsById, productDetailsById, selectedOrder]);
 
+  useEffect(() => {
+    if (isLoggedIn) {
+      return;
+    }
+
+    setSelectedOrder(null);
+    setSearchError(null);
+    setHasSearched(false);
+  }, [isLoggedIn]);
+
   const loadOrderItemDetails = async (order: OrderResponse) => {
     const tasks = order.orderDetails.flatMap((detail) => {
       if (detail.productId && !productDetailsById[detail.productId]) {
@@ -286,16 +299,30 @@ export function OrderTracking({ onNavigate }: OrderTrackingProps) {
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setHasSearched(true);
-    setSearchError(null);
-    setSelectedOrder(null);
 
     const trimmedOrderNumber = orderNumber.trim();
     if (!trimmedOrderNumber) {
+      setHasSearched(true);
       setSearchError("Vui lòng nhập mã đơn hàng để tra cứu.");
+      setSelectedOrder(null);
       return;
     }
 
+    if (!isLoggedIn) {
+      setHasSearched(false);
+      setSearchError(null);
+      setSelectedOrder(null);
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.TRACKING,
+        "Vui lòng đăng nhập để tra cứu đơn hàng.",
+      );
+      return;
+    }
+
+    setHasSearched(true);
+    setSearchError(null);
+    setSelectedOrder(null);
     setIsSearching(true);
 
     try {
@@ -382,44 +409,25 @@ export function OrderTracking({ onNavigate }: OrderTrackingProps) {
 
           <div className="rounded-2xl border border-[#D4AF37]/20 bg-white p-8 shadow-xl">
             <form onSubmit={handleSearch} className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-900">
-                    Mã đơn hàng <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Package className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      type="text"
-                      value={orderNumber}
-                      onChange={(event) => setOrderNumber(event.target.value)}
-                      placeholder="ORD-202603211230-ABCD"
-                      className="w-full rounded-lg border-2 border-gray-300 py-3 pl-12 pr-4 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-900">
-                    Số điện thoại / Email
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      type="text"
-                      value={contactInfo}
-                      onChange={(event) => setContactInfo(event.target.value)}
-                      placeholder="Trường này đang là thông tin tham chiếu"
-                      className="w-full rounded-lg border-2 border-gray-300 py-3 pl-12 pr-4 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
-                    />
-                  </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-900">
+                  Mã đơn hàng <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Package className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    type="text"
+                    value={orderNumber}
+                    onChange={(event) => setOrderNumber(event.target.value)}
+                    placeholder="ORD-202603211230-ABCD"
+                    className="w-full rounded-lg border-2 border-gray-300 py-3 pl-12 pr-4 focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
+                  />
                 </div>
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                API hiện tại chưa hỗ trợ lọc theo số điện thoại hoặc email. Trang
-                này đang tra cứu theo mã đơn hàng và hiển thị trạng thái, lịch sử,
-                vận chuyển, tổng tiền cùng danh sách sản phẩm.
+                Nhập mã đơn hàng của bạn. Hệ thống sẽ yêu cầu đăng nhập trước khi
+                hiển thị chi tiết trạng thái, vận chuyển và sản phẩm trong đơn.
               </div>
 
               <Button

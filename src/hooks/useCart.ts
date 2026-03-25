@@ -8,6 +8,7 @@ import {
   removeCartItems,
   emptyCart,
   checkoutCart,
+  resetCartState,
 } from "../store/slices/cartSlice";
 import type {
   AddToCartRequest,
@@ -38,6 +39,7 @@ const useCart = () => {
       dispatch(removeCartItems(cartItemIds)),
     emptyCart: () => dispatch(emptyCart()),
     checkout: (req: CheckoutRequest) => dispatch(checkoutCart(req)),
+    resetState: () => dispatch(resetCartState()),
 
     // Tiện ích: kiểm tra sản phẩm đã trong giỏ chưa
     isInCart: (productId: string) =>

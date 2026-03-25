@@ -71,8 +71,8 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
   };
 
   const handleLogout = () => {
-    onLogout?.();
     onNavigate?.("home");
+    onLogout?.();
   };
 
   return (

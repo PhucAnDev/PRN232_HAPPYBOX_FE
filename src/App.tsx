@@ -2,9 +2,12 @@ import { useEffect } from "react";
 import { Toaster } from "sonner";
 
 import { AppNavigationProvider } from "@/context/AppNavigationContext";
+import useAuthSessionSync from "@/hooks/useAuthSessionSync";
 import { AppRouter } from "@/routes/AppRouter";
 
 export default function App() {
+  useAuthSessionSync();
+
   useEffect(() => {
     const existingFonts = document.getElementById("app-fonts");
     if (existingFonts) {

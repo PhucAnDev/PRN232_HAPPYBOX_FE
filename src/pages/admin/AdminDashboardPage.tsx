@@ -437,8 +437,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <button
               className="text-white/60 hover:text-white"
               onClick={async () => {
-                await logout();
                 onNavigate?.("home");
+                await logout();
               }}
               title="Đăng xuất"
             >

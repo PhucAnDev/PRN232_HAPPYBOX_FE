@@ -61,6 +61,7 @@ api.interceptors.response.use(
         // Refresh tháº¥t báº¡i â†’ logout
         localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.USER);
         window.location.assign(getPathForPage(APP_PAGES.HOME));
       }
     }

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { ChevronRight, Minus, Plus, ShoppingCart, Truck, Award, RefreshCw, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { APP_PAGES } from "@/constants/pages";
 import { STORAGE_KEYS } from "@/constants/storage";
+import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
 import useCart from "@/hooks/useCart";
 import type {
@@ -12,6 +14,7 @@ import type { ImageResponse } from "@/services/imageService";
 import { InventoryStatus } from "@/services/inventoryService";
 import type { InventoryResponse } from "@/services/inventoryService";
 import type { ProductResponse } from "@/services/productService";
+import { redirectToLogin } from "@/utils/authRedirect";
 import { getViewProduct } from "@/utils/productViewStore";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600";
@@ -36,6 +39,7 @@ interface PageData {
 export function ProductDetail({ onNavigate }: ProductDetailProps) {
   const { fetchGiftBoxDetail, fetchProductDetail, fetchProductImages } =
     useCatalog();
+  const { isLoggedIn } = useAuth();
   const { addItem } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -161,6 +165,16 @@ export function ProductDetail({ onNavigate }: ProductDetailProps) {
   const handleAddToCart = async () => {
     const view = getViewProduct();
     if (!view || addingToCart) return;
+
+    if (!isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.PRODUCT,
+        "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.",
+      );
+      return;
+    }
+
     try {
       setAddingToCart(true);
       await addItemToCart({
@@ -180,6 +194,15 @@ export function ProductDetail({ onNavigate }: ProductDetailProps) {
   const handleBuyNow = async () => {
     const view = getViewProduct();
     if (!view || buyingNow) return;
+
+    if (!isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.PRODUCT,
+        "Vui lòng đăng nhập để mua hàng ngay.",
+      );
+      return;
+    }
 
     try {
       setBuyingNow(true);

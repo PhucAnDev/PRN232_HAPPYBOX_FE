@@ -512,8 +512,20 @@ export function VoucherManagement() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto max-h-[calc(100vh-400px)]">
-              <Table>
+            <div className="overflow-y-auto overflow-x-hidden max-h-[calc(100vh-400px)]">
+              <Table className="table-fixed [&_th]:px-3 [&_th]:py-4 [&_th]:whitespace-normal [&_th]:break-words [&_td]:px-3 [&_td]:py-4 [&_td]:align-top [&_td]:whitespace-normal [&_td]:break-words">
+                <colgroup>
+                  <col className="w-[10%]" />
+                  <col className="w-[29%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[9%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[10%]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="font-bold">Mã Voucher</TableHead>
@@ -538,13 +550,15 @@ export function VoucherManagement() {
                     )
                     .map((voucher) => (
                       <TableRow key={voucher.id} className="hover:bg-gray-50">
-                        <TableCell className="font-bold text-[#B71C1C] whitespace-nowrap">
+                        <TableCell className="font-bold text-[#B71C1C] break-all">
                           {voucher.code}
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {voucher.description}
+                        <TableCell className="max-w-[280px]">
+                          <div className="line-clamp-2 break-words">
+                            {voucher.description}
+                          </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           <Badge
                             variant="outline"
                             className={
@@ -558,20 +572,20 @@ export function VoucherManagement() {
                               : "Số tiền"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-semibold">
+                        <TableCell className="font-semibold text-center">
                           {voucher.discountType === "PERCENT"
                             ? `${voucher.value}%`
                             : formatCurrency(voucher.value)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           {formatCurrency(voucher.minOrderValue)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           {voucher.maxDiscountAmount
                             ? formatCurrency(voucher.maxDiscountAmount)
                             : "Không giới hạn"}
                         </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">
+                        <TableCell className="text-sm">
                           <div>{formatDate(voucher.startDate)}</div>
                           <div className="text-gray-500">
                             đến {formatDate(voucher.endDate)}
@@ -587,7 +601,7 @@ export function VoucherManagement() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">
                           {isExpired(voucher.endDate) ? (
                             <Badge
                               variant="outline"
@@ -612,7 +626,7 @@ export function VoucherManagement() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex flex-wrap items-center justify-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"

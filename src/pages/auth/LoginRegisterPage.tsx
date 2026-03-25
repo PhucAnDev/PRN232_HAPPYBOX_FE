@@ -3,8 +3,10 @@ import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { APP_PAGES } from "@/constants/pages";
 import logoImage from "figma:asset/a3fa2786d2f68b7a9dfd274d63677f4d0b0ab4f1.png";
 import useAuth from "@/hooks/useAuth";
+import { consumePostLoginPage } from "@/utils/authRedirect";
 
 interface LoginRegisterProps {
   onNavigate?: (page: string) => void;
@@ -36,17 +38,29 @@ export function LoginRegister({
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [registerSuccess, setRegisterSuccess] = useState("");
 
+  const navigateAfterLogin = (role: string) => {
+    const postLoginPage = consumePostLoginPage();
+
+    if (role === "Admin") {
+      onNavigate?.(APP_PAGES.ADMIN);
+      return;
+    }
+
+    if (postLoginPage && postLoginPage !== APP_PAGES.ADMIN) {
+      onNavigate?.(postLoginPage);
+      return;
+    }
+
+    onNavigate?.(APP_PAGES.HOME);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     const role = await login({ email: loginEmail, password: loginPassword });
     if (role) {
       onLoginSuccess?.();
-      if (role === "Admin") {
-        onNavigate?.("admin");
-      } else {
-        onNavigate?.("home");
-      }
+      navigateAfterLogin(role);
     }
   };
 
@@ -106,11 +120,7 @@ export function LoginRegister({
     const role = await googleLogin(credentialResponse.credential);
     if (role) {
       onLoginSuccess?.();
-      if (role === "Admin") {
-        onNavigate?.("admin");
-      } else {
-        onNavigate?.("home");
-      }
+      navigateAfterLogin(role);
     } else {
       console.error("Google login failed - check backend logs");
     }

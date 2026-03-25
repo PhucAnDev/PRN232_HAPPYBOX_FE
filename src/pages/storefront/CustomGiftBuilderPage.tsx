@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, Check, X, Plus, ChevronLeft, Sparkles, Minus, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { APP_PAGES } from "@/constants/pages";
+import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
 import { useProducts } from "@/hooks/useProduct";
 import useCart from "@/hooks/useCart";
 import { toast } from "sonner";
+import { redirectToLogin } from "@/utils/authRedirect";
 
 interface CustomGiftBuilderProps {
   onNavigate?: (page: string) => void;
@@ -45,6 +48,7 @@ const toPreviewPath = (url: string) => {
 
 export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   const { generateCustomBasketPreview, confirmCustomBasket } = useCatalog();
+  const { isLoggedIn } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPackaging, setSelectedPackaging] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -200,6 +204,15 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
   };
 
   const handleNextStep = () => {
+    if (currentStep === 2 && !isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.CUSTOM_BUILDER,
+        "Vui lòng đăng nhập để tiếp tục sang bước hoàn tất.",
+      );
+      return;
+    }
+
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
       
@@ -267,6 +280,18 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
     setShowAIAssistant(!showAIAssistant);
   };
 
+  useEffect(() => {
+    if (!isLoggedIn && currentStep === 3) {
+      setCurrentStep(2);
+      setGeneratedGiftImage(null);
+      setConfirmedGiftBoxId(null);
+      setShowConfirmSuccess(false);
+      setIsGeneratingImage(false);
+      setIsConfirming(false);
+      setIsAddingToCart(false);
+    }
+  }, [isLoggedIn, currentStep]);
+
   const generateGiftImage = async () => {
     setIsGeneratingImage(true);
     setGeneratedGiftImage(null);
@@ -312,6 +337,16 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
 
   const handleConfirm = async () => {
     if (!generatedGiftImage) return;
+
+    if (!isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.CUSTOM_BUILDER,
+        "Vui lòng đăng nhập để xác nhận giỏ quà của bạn.",
+      );
+      return;
+    }
+
     setIsConfirming(true);
 
     // BE validation requires path to start with /images/custom-baskets/temp/
@@ -352,6 +387,16 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
 
   const handleAddToCart = async () => {
     if (!confirmedGiftBoxId) return;
+
+    if (!isLoggedIn) {
+      redirectToLogin(
+        onNavigate,
+        APP_PAGES.CUSTOM_BUILDER,
+        "Vui lòng đăng nhập để thêm giỏ quà vào giỏ hàng.",
+      );
+      return;
+    }
+
     setIsAddingToCart(true);
     try {
       const result = await addItem({ giftBoxId: confirmedGiftBoxId, quantity: 1 });

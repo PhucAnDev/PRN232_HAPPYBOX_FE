@@ -6,6 +6,11 @@ import authService, {
   UserAuthInfo,
   UserProfile,
 } from "../../services/authService";
+import { STORAGE_KEYS } from "@/constants/storage";
+import {
+  getStoredAuthSession,
+  type StoredAuthSession,
+} from "@/utils/authStorage";
 
 // ====== State type ======
 interface AuthState {
@@ -20,13 +25,13 @@ interface AuthState {
   resetOtp: string; // OTP nhập ở VerifyOTP, truyền sang ResetPassword
 }
 
+const storedAuthSession = getStoredAuthSession();
+
 const initialState: AuthState = {
-  user: localStorage.getItem("user")
-    ? JSON.parse(localStorage.getItem("user")!)
-    : null,
+  user: storedAuthSession.user,
   profile: null,
-  accessToken: localStorage.getItem("accessToken"),
-  refreshToken: localStorage.getItem("refreshToken"),
+  accessToken: storedAuthSession.accessToken,
+  refreshToken: storedAuthSession.refreshToken,
   loading: false,
   error: null,
   forgotEmail: "",
@@ -41,9 +46,9 @@ export const loginThunk = createAsyncThunk(
     try {
       const res = await authService.login(credentials);
       const { accessToken, refreshToken, user } = res.data.data;
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
       return { accessToken, refreshToken, user }; // user có kèm roleName
     } catch (err: any) {
       return rejectWithValue(
@@ -60,9 +65,9 @@ export const googleLoginThunk = createAsyncThunk(
       console.log("Sending Google credential to backend...");
       const res = await authService.googleLogin(credential);
       const { accessToken, refreshToken, user } = res.data.data;
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
       console.log("Google login successful!");
       return { accessToken, refreshToken, user };
     } catch (err: any) {
@@ -102,10 +107,11 @@ export const getProfileThunk = createAsyncThunk(
 );
 
 export const logoutThunk = createAsyncThunk("auth/logout", async () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("user");
-  localStorage.removeItem("currentPage");
+  localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.USER);
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_PAGE);
+  sessionStorage.removeItem(STORAGE_KEYS.POST_LOGIN_PAGE);
 });
 
 export const forgotPasswordThunk = createAsyncThunk(
@@ -154,6 +160,20 @@ const authSlice = createSlice({
       state.forgotEmail = "";
       state.resetOtp = "";
       state.error = null;
+    },
+    syncSessionFromStorage: (state, action: PayloadAction<StoredAuthSession>) => {
+      const currentUserId = state.user?.id ?? null;
+      const nextUserId = action.payload.user?.id ?? null;
+
+      state.user = action.payload.user;
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.loading = false;
+      state.error = null;
+
+      if (currentUserId !== nextUserId || !action.payload.accessToken) {
+        state.profile = null;
+      }
     },
   },
   extraReducers: (builder) => {
@@ -248,6 +268,11 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setForgotEmail, setResetOtp, clearResetFlow } =
-  authSlice.actions;
+export const {
+  clearError,
+  setForgotEmail,
+  setResetOtp,
+  clearResetFlow,
+  syncSessionFromStorage,
+} = authSlice.actions;
 export default authSlice.reducer;

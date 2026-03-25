@@ -87,8 +87,15 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   };
 
   useEffect(() => {
+    if (!user?.email) {
+      setFullName("");
+      setEmail("");
+      setPhone("");
+      return;
+    }
+
     fetchProfile();
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => {
     if (profile) {
@@ -103,10 +110,15 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
 
   // Fetch user's gift boxes when giftbaskets section is active
   useEffect(() => {
+    if (!user?.id) {
+      setGiftBoxes([]);
+      return;
+    }
+
     if (activeSection === "giftbaskets") {
       fetchUserGiftBoxes();
     }
-  }, [activeSection]);
+  }, [activeSection, user?.id]);
 
   const fetchUserGiftBoxes = async () => {
     try {
@@ -169,9 +181,9 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   };
 
   const handleLogout = async () => {
+    onNavigate?.("home");
     await logout();
     onLogout?.();
-    onNavigate?.("home");
   };
 
   const handleDeleteGiftBasket = (id: string) => {

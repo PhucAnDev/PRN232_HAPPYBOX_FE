@@ -78,10 +78,16 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
 
   useEffect(() => {
     const fetchAll = async () => {
-      if (!user?.id) return; // Don't fetch if no user logged in
+      if (!user?.id) {
+        setOrders([]);
+        setSelectedOrder(null);
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
+        setOrders([]);
         const [ordersRes, productsRes, giftBoxesRes] = await Promise.allSettled([
           orderService.getByUserId(user.id),
           productService.getAll(),
@@ -157,9 +163,9 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
   ];
 
   const handleLogout = async () => {
+    onNavigate?.("home");
     await logout();
     onLogout?.();
-    onNavigate?.("home");
   };
 
   const displayName = user?.fullName || user?.username || "Khách";
