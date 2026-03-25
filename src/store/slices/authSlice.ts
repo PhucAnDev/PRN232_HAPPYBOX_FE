@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import authService, {
+  ChangePasswordRequest,
   LoginRequest,
   RegisterRequest,
   ResetPasswordRequest,
@@ -142,6 +143,20 @@ export const resetPasswordThunk = createAsyncThunk(
   },
 );
 
+export const changePasswordThunk = createAsyncThunk(
+  "auth/changePassword",
+  async (data: ChangePasswordRequest, { rejectWithValue }) => {
+    try {
+      const res = await authService.changePassword(data);
+      return res.data.message;
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "Đổi mật khẩu thất bại",
+      );
+    }
+  },
+);
+
 // ====== Slice ======
 const authSlice = createSlice({
   name: "auth",
@@ -262,6 +277,19 @@ const authSlice = createSlice({
         state.resetOtp = "";
       })
       .addCase(resetPasswordThunk.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // changePassword
+      .addCase(changePasswordThunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(changePasswordThunk.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(changePasswordThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

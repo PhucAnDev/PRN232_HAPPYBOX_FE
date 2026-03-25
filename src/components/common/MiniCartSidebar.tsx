@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import useCart from "@/hooks/useCart";
 
@@ -18,6 +19,12 @@ export function MiniCartSidebar({
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>(
     {},
   );
+  const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>(
+    {},
+  );
+  const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // Fetch cart từ API khi sidebar mở lần đầu / mỗi khi mở
   useEffect(() => {
@@ -30,6 +37,13 @@ export function MiniCartSidebar({
     setQuantityInputs(
       Object.fromEntries(
         cartItems.map((item) => [item.id, item.quantity.toString()]),
+      ),
+    );
+    setQuantityErrors((previous) =>
+      Object.fromEntries(
+        cartItems
+          .filter((item) => previous[item.id])
+          .map((item) => [item.id, previous[item.id]]),
       ),
     );
   }, [cartItems]);
@@ -60,13 +74,91 @@ export function MiniCartSidebar({
     }).format(amount);
   };
 
-  const handleUpdateQuantity = (id: string, currentQty: number, delta: number) => {
+  const getQuantityErrorMessage = (error: unknown) => {
+    const normalizedMessage =
+      typeof error === "string"
+        ? error.trim()
+        : error instanceof Error
+          ? error.message.trim()
+          : "";
+
+    if (
+      normalizedMessage &&
+      !/request failed with status code|network error|timeout/i.test(
+        normalizedMessage,
+      )
+    ) {
+      return normalizedMessage;
+    }
+
+    return "So luong ban chon vuot qua hang ton kho hien co. Vui long giam bot de tiep tuc.";
+  };
+
+  const clearQuantityError = (id: string) => {
+    setQuantityErrors((previous) => {
+      if (!previous[id]) {
+        return previous;
+      }
+
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const setUpdatingState = (id: string, isUpdating: boolean) => {
+    setUpdatingItems((previous) => {
+      if (isUpdating) {
+        return {
+          ...previous,
+          [id]: true,
+        };
+      }
+
+      if (!previous[id]) {
+        return previous;
+      }
+
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const submitQuantityUpdate = async (
+    id: string,
+    nextQty: number,
+    currentQty: number,
+  ) => {
+    clearQuantityError(id);
+    setUpdatingState(id, true);
+
+    try {
+      await updateItem(id, nextQty);
+    } catch (error) {
+      const message = getQuantityErrorMessage(error);
+
+      setQuantityInputs((previous) => ({
+        ...previous,
+        [id]: currentQty.toString(),
+      }));
+      setQuantityErrors((previous) => ({
+        ...previous,
+        [id]: message,
+      }));
+      toast.error(message);
+    } finally {
+      setUpdatingState(id, false);
+    }
+  };
+
+  const handleUpdateQuantity = async (id: string, currentQty: number, delta: number) => {
     const newQty = Math.max(1, currentQty + delta);
     setQuantityInputs((previous) => ({
       ...previous,
       [id]: newQty.toString(),
     }));
-    updateItem(id, newQty);
+    await submitQuantityUpdate(id, newQty, currentQty);
   };
 
   const handleQuantityInputChange = (id: string, value: string) => {
@@ -80,7 +172,7 @@ export function MiniCartSidebar({
     }));
   };
 
-  const handleQuantityInputCommit = (id: string, currentQty: number) => {
+  const handleQuantityInputCommit = async (id: string, currentQty: number) => {
     const rawValue = quantityInputs[id]?.trim() ?? "";
 
     if (!rawValue) {
@@ -103,8 +195,11 @@ export function MiniCartSidebar({
     }));
 
     if (nextQty !== currentQty) {
-      updateItem(id, nextQty);
+      await submitQuantityUpdate(id, nextQty, currentQty);
+      return;
     }
+
+    clearQuantityError(id);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -210,7 +305,8 @@ export function MiniCartSidebar({
                     <div className="flex items-center gap-3 mt-3">
                       <div className="flex items-center border border-gray-300 rounded-lg">
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity, -1)}
+                          onClick={() => void handleUpdateQuantity(item.id, item.quantity, -1)}
+                          disabled={!!updatingItems[item.id]}
                           className="p-1.5 hover:bg-gray-100 transition-colors"
                           aria-label="Giảm số lượng"
                         >
@@ -227,19 +323,21 @@ export function MiniCartSidebar({
                             handleQuantityInputChange(item.id, e.target.value)
                           }
                           onBlur={() =>
-                            handleQuantityInputCommit(item.id, item.quantity)
+                            void handleQuantityInputCommit(item.id, item.quantity)
                           }
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                              handleQuantityInputCommit(item.id, item.quantity);
+                              void handleQuantityInputCommit(item.id, item.quantity);
                               e.currentTarget.blur();
                             }
                           }}
+                          disabled={!!updatingItems[item.id]}
                           className="w-12 border-x border-gray-200 bg-transparent px-2 py-1 text-center text-sm font-semibold text-gray-900 outline-none"
                           aria-label="Nhập số lượng"
                         />
                         <button
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity, 1)}
+                          onClick={() => void handleUpdateQuantity(item.id, item.quantity, 1)}
+                          disabled={!!updatingItems[item.id]}
                           className="p-1.5 hover:bg-gray-100 transition-colors"
                           aria-label="Tăng số lượng"
                         >
@@ -256,6 +354,12 @@ export function MiniCartSidebar({
                         <Trash2 className="h-5 w-5 text-gray-400 group-hover/delete:text-red-500 transition-colors" />
                       </button>
                     </div>
+
+                    {quantityErrors[item.id] && (
+                      <p className="mt-2 text-xs font-medium text-red-600">
+                        {quantityErrors[item.id]}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

@@ -5,6 +5,7 @@ import type {
   AddToCartRequest,
   CheckoutRequest,
 } from "../../services/cartService";
+import { getErrorMessage } from "../../utils/errorMessage";
 
 // ====== State ======
 interface CartState {
@@ -34,8 +35,20 @@ export const addItemToCart = createAsyncThunk(
 
 export const updateCartItem = createAsyncThunk(
   "cart/updateItem",
-  async ({ cartItemId, quantity }: { cartItemId: string; quantity: number }) => {
-    return await cartService.updateCartItem(cartItemId, { quantity });
+  async (
+    { cartItemId, quantity }: { cartItemId: string; quantity: number },
+    { rejectWithValue },
+  ) => {
+    try {
+      return await cartService.updateCartItem(cartItemId, { quantity });
+    } catch (error) {
+      return rejectWithValue(
+        getErrorMessage(
+          error,
+          "So luong dat vuot qua ton kho hien co. Vui long dieu chinh lai.",
+        ),
+      );
+    }
   },
 );
 
@@ -109,9 +122,17 @@ const cartSlice = createSlice({
       });
 
     // updateCartItem
-    builder.addCase(updateCartItem.fulfilled, (state, action) => {
-      state.cart = action.payload;
-    });
+    builder
+      .addCase(updateCartItem.fulfilled, (state, action) => {
+        state.error = null;
+        state.cart = action.payload;
+      })
+      .addCase(updateCartItem.rejected, (state, action) => {
+        state.error =
+          (typeof action.payload === "string" && action.payload) ||
+          action.error.message ||
+          "So luong dat vuot qua ton kho hien co. Vui long dieu chinh lai.";
+      });
 
     // removeCartItem — xóa 1 item khỏi state cục bộ
     builder.addCase(removeCartItem.fulfilled, (state, action) => {

@@ -33,7 +33,7 @@ const useCart = () => {
     fetchCart: () => dispatch(fetchCart()),
     addItem: (req: AddToCartRequest) => dispatch(addItemToCart(req)),
     updateItem: (cartItemId: string, quantity: number) =>
-      dispatch(updateCartItem({ cartItemId, quantity })),
+      dispatch(updateCartItem({ cartItemId, quantity })).unwrap(),
     removeItem: (cartItemId: string) => dispatch(removeCartItem(cartItemId)),
     removeItems: (cartItemIds: string[]) =>
       dispatch(removeCartItems(cartItemIds)),

@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import useChangePassword from "@/hooks/useChangePassword";
+import { toast } from "sonner";
 
 interface ChangePasswordProps {
   onNavigate?: (page: string) => void;
@@ -20,6 +22,8 @@ interface ChangePasswordProps {
 
 export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
   const [activeSection, setActiveSection] = useState("password");
+  const { changePassword, loading: isLoading, clearError } =
+    useChangePassword();
   
   // Password form states
   const [currentPassword, setCurrentPassword] = useState("");
@@ -31,20 +35,22 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
+    clearError();
+
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      alert("Vui lòng điền đầy đủ thông tin!");
+      toast.error("Vui lòng điền đầy đủ thông tin!");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+      toast.error("Mật khẩu mới và xác nhận mật khẩu không khớp!");
       return;
     }
 
     if (newPassword.length < 8) {
-      alert("Mật khẩu phải có ít nhất 8 ký tự!");
+      toast.error("Mật khẩu phải có ít nhất 8 ký tự!");
       return;
     }
 
@@ -53,21 +59,32 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
     const hasNumber = /[0-9]/.test(newPassword);
 
     if (!hasUppercase || !hasNumber) {
-      alert("Mật khẩu phải bao gồm chữ hoa và số!");
+      toast.error("Mật khẩu phải bao gồm chữ hoa và số!");
       return;
     }
 
-    // Success
-    alert("Mật khẩu đã được cập nhật thành công!");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    const result = await changePassword(
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    );
+
+    if (result.success) {
+      toast.success(result.message || "Mật khẩu đã được cập nhật thành công!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      return;
+    }
+
+    toast.error(result.message || "Đổi mật khẩu thất bại");
   };
 
   const handleCancel = () => {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    clearError();
   };
 
   const handleLogout = () => {
@@ -306,7 +323,10 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
 
                   {/* Forgot Password Link */}
                   <div className="text-right">
-                    <button className="text-sm text-[#B71C1C] hover:text-[#8B1538] font-medium transition-colors">
+                    <button
+                      onClick={() => onNavigate?.("forgot-password")}
+                      className="text-sm text-[#B71C1C] hover:text-[#8B1538] font-medium transition-colors"
+                    >
                       Bạn quên mật khẩu?
                     </button>
                   </div>
@@ -316,12 +336,14 @@ export function ChangePassword({ onNavigate, onLogout }: ChangePasswordProps) {
                 <div className="mt-8 pt-6 border-t border-gray-200 flex gap-4">
                   <Button
                     onClick={handleUpdatePassword}
+                    disabled={isLoading}
                     className="bg-[#D4AF37] hover:bg-[#B8962E] text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-all text-lg"
                   >
-                    Cập nhật mật khẩu
+                    {isLoading ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
                   </Button>
                   <Button
                     onClick={handleCancel}
+                    disabled={isLoading}
                     variant="outline"
                     className="border-2 border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-all"
                   >

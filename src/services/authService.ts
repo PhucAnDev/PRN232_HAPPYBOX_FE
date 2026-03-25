@@ -60,6 +60,12 @@ export interface ResetPasswordRequest {
   confirmPassword: string;
 }
 
+export interface ChangePasswordRequest {
+  password: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface TokenModel {
   accessToken: string;
   refreshToken: string;
@@ -86,6 +92,10 @@ const authService = {
   // POST /api/auth/reset-password
   resetPassword: (data: ResetPasswordRequest) =>
     api.post<ApiResponse<null>>("/auth/reset-password", data),
+
+  // POST /api/ChangePassword
+  changePassword: (data: ChangePasswordRequest) =>
+    api.post<{ message: string }>("/ChangePassword", data),
 
   // POST /api/auth/refresh-token
   refreshToken: (token: TokenModel) =>
