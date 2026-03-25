@@ -151,20 +151,26 @@ export function VoucherManagement() {
   };
 
   // Filter vouchers
-  const filteredVouchers = vouchers.filter((voucher) => {
-    const matchesSearch =
-      voucher.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      voucher.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredVouchers = vouchers
+    .filter((voucher) => {
+      const matchesSearch =
+        voucher.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        voucher.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus =
-      filterStatus === "all"
-        ? true
-        : filterStatus === "active"
-          ? voucher.isActive
-          : !voucher.isActive;
+      const matchesStatus =
+        filterStatus === "all"
+          ? true
+          : filterStatus === "active"
+            ? voucher.isActive
+            : !voucher.isActive;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
+    );
 
   // Block body scroll when modal is open
   useEffect(() => {

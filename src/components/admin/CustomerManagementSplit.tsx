@@ -152,8 +152,14 @@ export function CustomerManagementSplit() {
           ? getTimeAgo(new Date(user.updatedAt))
           : "Chưa xác định";
 
+        const sortedUserOrders = [...userOrders].sort(
+          (left, right) =>
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime(),
+        );
+
         // Map orders to simplified format
-        const ordersList = userOrders.map((order) => ({
+        const ordersList = sortedUserOrders.map((order) => ({
           id: order.orderNumber,
           date: new Date(order.createdAt).toLocaleDateString("vi-VN"),
           amount: order.finalAmount,

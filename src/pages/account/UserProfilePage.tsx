@@ -165,7 +165,13 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
     };
   };
 
-  const savedGiftBaskets = giftBoxes.map(mapGiftBoxToBasket);
+  const savedGiftBaskets = [...giftBoxes]
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
+    )
+    .map(mapGiftBoxToBasket);
 
   const formatPrice = (price: number) => {
     if (!price || typeof price !== 'number') {

@@ -251,7 +251,8 @@ export function OrderTracking({ onNavigate }: OrderTrackingProps) {
 
     return [...selectedOrder.orderHistories].sort(
       (left, right) =>
-        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
     );
   }, [selectedOrder]);
 

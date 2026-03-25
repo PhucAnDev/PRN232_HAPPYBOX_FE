@@ -195,6 +195,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const salesTrendData: SalesTrendDto[] = salesTrend;
   const orderStatusData: OrderStatusChartDto[] = orderStatus;
   const recentOrdersApi: RecentOrderDto[] = recentOrders;
+  const recentOrdersSorted = [...recentOrdersApi].sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 
   useEffect(() => {
     const syncRouteState = () => {
@@ -731,14 +735,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {recentOrdersApi.length === 0 && !loading ? (
+                      {recentOrdersSorted.length === 0 && !loading ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                             Chưa có đơn hàng nào.
                           </td>
                         </tr>
                       ) : (
-                        recentOrdersApi.map((order) => (
+                        recentOrdersSorted.map((order) => (
                           <tr
                             key={order.orderId}
                             className="hover:bg-gray-50 transition-colors"
