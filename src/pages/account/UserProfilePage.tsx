@@ -31,6 +31,7 @@ import {
 import { toast, Toaster } from "sonner@2.0.3";
 import type { GiftBoxResponse } from "@/services/giftBoxService";
 import useCart from "@/hooks/useCart";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
 interface UserProfileProps {
   onNavigate?: (page: string) => void;
@@ -148,11 +149,9 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
       image: ""
     })) || [];
 
-    // Get image URL and prepend base URL if it's a relative path
-    const imageUrl = giftBox.images?.[0]?.url;
-    const fullImageUrl = imageUrl?.startsWith('/')
-      ? `https://prn232.onrender.com${imageUrl}`
-      : imageUrl || "https://images.unsplash.com/photo-1644890587862-e309716adbca?w=1080";
+    const fullImageUrl =
+      resolveImageUrl(giftBox.images?.[0]?.url) ||
+      "https://images.unsplash.com/photo-1644890587862-e309716adbca?w=1080";
 
     return {
       id: giftBox.id,

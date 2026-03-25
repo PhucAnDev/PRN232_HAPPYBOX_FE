@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import useCatalog from "@/hooks/useCatalog";
 import type { GiftBoxResponse } from "@/services/giftBoxService";
 import { setViewProduct } from "@/utils/productViewStore";
+import { resolveImageUrl } from "@/utils/imageUrl";
 import {
   Search,
   Plus,
@@ -87,7 +88,7 @@ function mapToHamper(g: GiftBoxResponse): Hamper {
     updatedAt: g.updatedAt || null,
     images: (g.images || []).map((img) => ({
       id: img.id,
-      url: img.url,
+      url: resolveImageUrl(img.url),
       isMain: img.isMain,
       displayOrder: 0,
       productId: null,
@@ -1891,12 +1892,12 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                           <div className="col-span-2">
                             <span className="text-gray-600">URL:</span>{" "}
                             <a
-                              href={img.url}
+                              href={resolveImageUrl(img.url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline break-all"
                             >
-                              {img.url}
+                              {resolveImageUrl(img.url)}
                             </a>
                           </div>
                         </div>

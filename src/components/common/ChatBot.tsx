@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useChatbot from "@/hooks/useChatbot";
 import type { ProductSuggestion } from "@/services/chatbotService";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
 interface Message {
   id: string;
@@ -244,7 +245,7 @@ export function ChatBot() {
                                 <div className="flex gap-3">
                                   {product.imageUrl && (
                                     <img
-                                      src={product.imageUrl}
+                                      src={resolveImageUrl(product.imageUrl)}
                                       alt={product.name}
                                       className="w-16 h-16 object-cover rounded-lg"
                                     />

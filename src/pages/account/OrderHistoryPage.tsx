@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL } from "@/constants/env";
 import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
 import useOrders from "@/hooks/useOrders";
@@ -30,6 +31,20 @@ interface OrderHistoryProps {
 }
 
 type TabFilter = "all" | "to-pay" | "to-ship" | "completed" | "cancelled";
+
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+
+const normalizeImageUrl = (url: string | null | undefined) => {
+  if (!url) {
+    return "";
+  }
+
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:")) {
+    return url;
+  }
+
+  return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+};
 
 export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
   const { user, logout } = useAuth();
@@ -105,14 +120,14 @@ export function OrderHistory({ onNavigate, onLogout }: OrderHistoryProps) {
               p.images?.find((img) => img.isMain)?.url ??
               p.images?.[0]?.url ??
               "";
-            map[p.id] = { name: p.name, image };
+            map[p.id] = { name: p.name, image: normalizeImageUrl(image) };
           }
         }
 
         if (giftBoxesRes.status === "fulfilled" && giftBoxesRes.value.data.success) {
           for (const g of giftBoxesRes.value.data.data) {
             const image = g.images?.[0]?.url ?? "";
-            map[g.id] = { name: g.name, image };
+            map[g.id] = { name: g.name, image: normalizeImageUrl(image) };
           }
         }
 

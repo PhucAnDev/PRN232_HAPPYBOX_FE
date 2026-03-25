@@ -18,15 +18,31 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { API_BASE_URL } from "@/constants/env";
 import useCatalog from "@/hooks/useCatalog";
 import useOrders from "@/hooks/useOrders";
 import useUsers from "@/hooks/useUsers";
 import { OrderStatus } from "@/services/orderService";
 import { CreateOrder } from "./CreateOrder";
 
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+
+const normalizeImageUrl = (url: string | null | undefined) => {
+  if (!url) {
+    return null;
+  }
+
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:")) {
+    return url;
+  }
+
+  return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
 interface Order {
   id: string;
   backendId?: string; // Backend GUID for API calls
+  createdAt: string;
   customer: {
     name: string;
     avatar: string;
@@ -221,8 +237,12 @@ export function OrderManagement() {
                   if (prodResponse.data.success) {
                     productName = prodResponse.data.data.name || productName;
                     const images = prodResponse.data.data.images || [];
-                    if (images.length > 0 && images[0].url) {
-                      productImage = images[0].url;
+                    const imageUrl =
+                      images.find((image: any) => image.isMain)?.url ||
+                      images[0]?.url;
+                    const normalizedImageUrl = normalizeImageUrl(imageUrl);
+                    if (normalizedImageUrl) {
+                      productImage = normalizedImageUrl;
                     }
                   }
                 } else if (detail.giftBoxId) {
@@ -233,8 +253,12 @@ export function OrderManagement() {
                     productName =
                       giftBoxResponse.data.data.name || productName;
                     const images = giftBoxResponse.data.data.images || [];
-                    if (images.length > 0 && images[0].url) {
-                      productImage = images[0].url;
+                    const imageUrl =
+                      images.find((image: any) => image.isMain)?.url ||
+                      images[0]?.url;
+                    const normalizedImageUrl = normalizeImageUrl(imageUrl);
+                    if (normalizedImageUrl) {
+                      productImage = normalizedImageUrl;
                     }
                   }
                 }
@@ -269,6 +293,7 @@ export function OrderManagement() {
           return {
             id: apiOrder.orderNumber,
             backendId: apiOrder.id, // Store backend GUID for API updates
+            createdAt: apiOrder.createdAt,
             customer: {
               name: userName,
               avatar: userName
@@ -453,19 +478,26 @@ export function OrderManagement() {
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredOrders = orders
+    .filter((order) => {
+      const matchesSearch =
+        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customer.name.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "all" || order.orderStatus === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || order.orderStatus === statusFilter;
 
-    const matchesPayment =
-      paymentFilter === "all" || order.paymentStatus === paymentFilter;
+      const matchesPayment =
+        paymentFilter === "all" || order.paymentStatus === paymentFilter;
 
-    return matchesSearch && matchesStatus && matchesPayment;
-  });
+      return matchesSearch && matchesStatus && matchesPayment;
+    })
+    .sort((left, right) => {
+      const leftTime = new Date(left.createdAt).getTime();
+      const rightTime = new Date(right.createdAt).getTime();
+
+      return rightTime - leftTime;
+    });
 
   const totalPages = Math.max(
     1,

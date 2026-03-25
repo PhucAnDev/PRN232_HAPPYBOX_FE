@@ -10,6 +10,7 @@ import { useProducts } from "@/hooks/useProduct";
 import useCart from "@/hooks/useCart";
 import { toast } from "sonner";
 import { redirectToLogin } from "@/utils/authRedirect";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
 interface CustomGiftBuilderProps {
   onNavigate?: (page: string) => void;
@@ -187,10 +188,9 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       id: p.id,
       name: p.name,
       price: Number(p.price),
-      image:
-        p.images?.find((img) => img.isMain)?.url ??
-        p.images?.[0]?.url ??
-        "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&h=400&fit=crop",
+      image: resolveImageUrl(
+        p.images?.find((img) => img.isMain)?.url ?? p.images?.[0]?.url,
+      ) || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=400&h=400&fit=crop",
       category: p.categoryName ?? "Sản phẩm",
     }));
 

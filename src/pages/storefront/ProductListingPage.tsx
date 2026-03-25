@@ -19,6 +19,7 @@ import useCart from "@/hooks/useCart";
 import type { GiftBoxResponse } from "@/services/giftBoxService";
 import { redirectToLogin } from "@/utils/authRedirect";
 import { setViewProduct } from "@/utils/productViewStore";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
 interface ProductListingProps {
   onNavigate?: (page: string) => void;
@@ -143,8 +144,10 @@ export function ProductListing({ onNavigate }: ProductListingProps) {
       return;
     }
     const mainImage =
-      box.images?.find((i) => i.isMain)?.url ??
-      box.images?.[0]?.url ??
+      resolveImageUrl(
+        box.images?.find((i) => i.isMain)?.url ??
+        box.images?.[0]?.url
+      ) ||
       "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600";
     const result = await addItem({ giftBoxId: box.id, quantity: 1 });
     if ((result as any)?.error == null) {
@@ -156,8 +159,10 @@ export function ProductListing({ onNavigate }: ProductListingProps) {
   const formatPrice = (p: number) => p.toLocaleString("vi-VN") + " VNĐ";
 
   const getMainImage = (box: GiftBoxResponse) =>
-    box.images?.find((i) => i.isMain)?.url ??
-    box.images?.[0]?.url ??
+    resolveImageUrl(
+      box.images?.find((i) => i.isMain)?.url ??
+      box.images?.[0]?.url
+    ) ||
     "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600";
 
   const getComponentsSummary = (box: GiftBoxResponse) =>

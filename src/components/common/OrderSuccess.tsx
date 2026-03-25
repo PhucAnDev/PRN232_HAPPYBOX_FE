@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "@/constants/env";
 import useCatalog from "@/hooks/useCatalog";
 import {
   CheckCircle,
@@ -56,6 +57,20 @@ interface OrderSuccessProps {
   onNavigate: (page: string) => void;
 }
 
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+
+const normalizeImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) {
+    return null;
+  }
+
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith("data:")) {
+    return url;
+  }
+
+  return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
 export function OrderSuccess({ orderData, onNavigate }: OrderSuccessProps) {
   const { fetchGiftBoxDetail, fetchProductDetail } = useCatalog();
   const [showDetails, setShowDetails] = useState(true);
@@ -71,12 +86,18 @@ export function OrderSuccess({ orderData, onNavigate }: OrderSuccessProps) {
             if (item.giftBoxId) {
               const box = await fetchGiftBoxDetail(item.giftBoxId);
               const img = box?.images?.find((i: { isMain: boolean; url: string }) => i.isMain)?.url ?? box?.images?.[0]?.url ?? null;
-              result[item.id] = { name: box?.name ?? "Giỏ Quà", image: img };
+              result[item.id] = {
+                name: box?.name ?? "Giỏ Quà",
+                image: normalizeImageUrl(img),
+              };
             } else if (item.productId) {
               const productData = await fetchProductDetail(item.productId);
               const prod = productData.product;
               const img = prod?.images?.find((i: { isMain: boolean; url: string }) => i.isMain)?.url ?? prod?.images?.[0]?.url ?? null;
-              result[item.id] = { name: prod?.name ?? "Sản Phẩm", image: img };
+              result[item.id] = {
+                name: prod?.name ?? "Sản Phẩm",
+                image: normalizeImageUrl(img),
+              };
             }
           } catch {
             result[item.id] = { name: item.giftBoxId ? "Giỏ Quà" : "Sản Phẩm", image: null };

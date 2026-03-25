@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
 interface OrderDetail {
   productId: string | null;
@@ -227,7 +228,7 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
             .then(r => {
               const imgs = r.data.success ? r.data.data : [];
               const main = imgs.find(i => i.isMain) ?? imgs[0];
-              return [p.id, main?.url ?? ""] as [string, string];
+              return [p.id, resolveImageUrl(main?.url ?? "")] as [string, string];
             })
             .catch(() => [p.id, ""] as [string, string])
         )
@@ -242,7 +243,13 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
         .map(p => ({ id: p.id, name: p.name, price: p.price, type: "product" as const, image: productImageMap[p.id] ?? "" }))
     : apiGiftBoxes
         .filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
-        .map(g => ({ id: g.id, name: g.name, price: g.basePrice, type: "giftbox" as const, image: g.images?.find(i => i.isMain)?.url ?? g.images?.[0]?.url ?? "" }));
+        .map(g => ({
+          id: g.id,
+          name: g.name,
+          price: g.basePrice,
+          type: "giftbox" as const,
+          image: resolveImageUrl(g.images?.find(i => i.isMain)?.url ?? g.images?.[0]?.url ?? ""),
+        }));
 
   const totalProductPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const pagedItems = filteredItems.slice((productPage - 1) * ITEMS_PER_PAGE, productPage * ITEMS_PER_PAGE);
