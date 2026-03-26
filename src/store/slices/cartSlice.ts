@@ -75,7 +75,7 @@ export const updateCartItem = createAsyncThunk(
       return rejectWithValue(
         getErrorMessage(
           error,
-          "So luong dat vuot qua ton kho hien co. Vui long dieu chinh lai.",
+          "Số lượng đặt vượt quá tồn kho hiện có. Vui lòng điều chỉnh lại.",
         ),
       );
     }
@@ -161,7 +161,7 @@ const cartSlice = createSlice({
         state.error =
           (typeof action.payload === "string" && action.payload) ||
           action.error.message ||
-          "So luong dat vuot qua ton kho hien co. Vui long dieu chinh lai.";
+          "Số lượng đặt vượt quá tồn kho hiện có. Vui lòng điều chỉnh lại.";
       });
 
     // removeCartItem — xóa 1 item khỏi state cục bộ

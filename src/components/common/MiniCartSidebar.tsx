@@ -3,6 +3,7 @@ import { X, Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import useCart from "@/hooks/useCart";
+import { normalizeApiMessage } from "@/utils/errorMessage";
 
 interface MiniCartSidebarProps {
   isOpen: boolean;
@@ -88,10 +89,10 @@ export function MiniCartSidebar({
         normalizedMessage,
       )
     ) {
-      return normalizedMessage;
+      return normalizeApiMessage(normalizedMessage);
     }
 
-    return "So luong ban chon vuot qua hang ton kho hien co. Vui long giam bot de tiep tuc.";
+    return "Số lượng bạn chọn vượt quá hàng tồn kho hiện có. Vui lòng giảm bớt để tiếp tục.";
   };
 
   const clearQuantityError = (id: string) => {

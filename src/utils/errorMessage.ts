@@ -1,6 +1,51 @@
+export const normalizeApiMessage = (message: string) => {
+  const trimmedMessage = message.trim();
+
+  const stockMatch = trimmedMessage.match(
+    /^Insufficient stock for product '(.+?)'\.\s*Available:\s*(\d+),\s*Requested:\s*(\d+)$/i,
+  );
+
+  if (stockMatch) {
+    const [, productName, available, requested] = stockMatch;
+    return `Sản phẩm "${productName}" chỉ còn ${available} sản phẩm trong kho. Bạn đang chọn ${requested} sản phẩm.`;
+  }
+
+  const productUnavailableMatch = trimmedMessage.match(
+    /^Product '(.+?)' is no longer available\.$/i,
+  );
+
+  if (productUnavailableMatch) {
+    const [, productName] = productUnavailableMatch;
+    return `Sản phẩm "${productName}" hiện không còn kinh doanh.`;
+  }
+
+  const giftBoxUnavailableMatch = trimmedMessage.match(
+    /^GiftBox '(.+?)' is no longer available\.$/i,
+  );
+
+  if (giftBoxUnavailableMatch) {
+    const [, giftBoxName] = giftBoxUnavailableMatch;
+    return `Hộp quà "${giftBoxName}" hiện không còn kinh doanh.`;
+  }
+
+  const staticMessageMap: Record<string, string> = {
+    "Cart is empty or not found.": "Giỏ hàng đang trống hoặc không tồn tại.",
+    "No items selected for checkout.":
+      "Vui lòng chọn sản phẩm trước khi thanh toán.",
+    "Voucher not found.": "Không tìm thấy mã giảm giá.",
+    "Voucher has expired or is inactive.":
+      "Mã giảm giá đã hết hạn hoặc đang bị vô hiệu hóa.",
+    "Voucher usage limit exceeded.":
+      "Mã giảm giá này đã hết lượt sử dụng.",
+    "Invalid user token.": "Phiên đăng nhập không hợp lệ.",
+  };
+
+  return staticMessageMap[trimmedMessage] ?? trimmedMessage;
+};
+
 export const getErrorMessage = (
   error: unknown,
-  fallback = "Da xay ra loi",
+  fallback = "Đã xảy ra lỗi.",
 ) => {
   const axiosLikeError = error as {
     response?: {
@@ -19,13 +64,14 @@ export const getErrorMessage = (
       .filter(Boolean);
 
     if (messages.length > 0) {
-      return messages.join("\n");
+      return messages.map(normalizeApiMessage).join("\n");
     }
   }
 
-  return (
+  const rawMessage =
     axiosLikeError?.response?.data?.message ||
     axiosLikeError?.message ||
-    fallback
-  );
+    fallback;
+
+  return normalizeApiMessage(rawMessage);
 };
