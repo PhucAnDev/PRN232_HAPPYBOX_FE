@@ -42,6 +42,14 @@ export interface RecentOrderDto {
   createdAt: string;
 }
 
+export interface BestSellerItemDto {
+  itemId: string;
+  itemName: string;
+  itemType: string;
+  totalSoldQuantity: number;
+  totalRevenue: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -73,6 +81,12 @@ const dashboardService = {
   getRecentOrders: (limit: number = 5) =>
     api.get<ApiResponse<RecentOrderDto[]>>(
       `/dashboards/recent-orders?limit=${limit}`
+    ),
+
+  // GET /api/dashboards/best-sellers
+  getBestSellers: (startDate: string, endDate: string, limit: number = 4) =>
+    api.get<ApiResponse<BestSellerItemDto[]>>(
+      `/dashboards/best-sellers?startDate=${startDate}&endDate=${endDate}&limit=${limit}`
     ),
 };
 

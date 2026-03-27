@@ -15,7 +15,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
       <ValueProposition />
       <CorporateSection onNavigate={onNavigate} />
       <CategoryGrid />
-      <BestSellers onAddToCart={() => {}} />
+      <BestSellers onNavigate={onNavigate} />
     </>
   );
 }
