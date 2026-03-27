@@ -2,12 +2,36 @@ export const normalizeApiMessage = (message: string) => {
   const trimmedMessage = message.trim();
 
   const stockMatch = trimmedMessage.match(
-    /^Insufficient stock for product '(.+?)'\.\s*Available:\s*(\d+),\s*Requested:\s*(\d+)$/i,
+    /^Insufficient stock for product '(.+?)'\.\s*Available:\s*(\d+),\s*Requested:\s*(\d+)(?:,\s*Max allowed:\s*(\d+))?\.?$/i,
   );
 
   if (stockMatch) {
-    const [, productName, available, requested] = stockMatch;
+    const [, productName, available, requested, maxAllowed] = stockMatch;
+
+    if (maxAllowed) {
+      return `Sản phẩm "${productName}" hiện chỉ còn ${available} sản phẩm trong kho. Bạn đang chọn ${requested} sản phẩm, số lượng tối đa có thể đặt là ${maxAllowed}.`;
+    }
+
     return `Sản phẩm "${productName}" chỉ còn ${available} sản phẩm trong kho. Bạn đang chọn ${requested} sản phẩm.`;
+  }
+
+  const giftBoxStockMatch = trimmedMessage.match(
+    /^Insufficient stock for GiftBox '(.+?)'\.\s*Limiting component '(.+?)' has (\d+) in stock,\s*requires (\d+) per box\.\s*Requested:\s*(\d+) boxes \((\d+) units\),\s*Max allowed:\s*(\d+) boxes\.?$/i,
+  );
+
+  if (giftBoxStockMatch) {
+    const [
+      ,
+      giftBoxName,
+      componentName,
+      availableUnits,
+      unitsPerBox,
+      requestedBoxes,
+      requestedUnits,
+      maxAllowedBoxes,
+    ] = giftBoxStockMatch;
+
+    return `Hộp quà "${giftBoxName}" hiện chưa đủ số lượng để đáp ứng yêu cầu của bạn. Thành phần giới hạn là "${componentName}" hiện còn ${availableUnits} sản phẩm, mỗi hộp cần ${unitsPerBox} sản phẩm. Bạn đang chọn ${requestedBoxes} hộp (${requestedUnits} sản phẩm), tối đa có thể đặt ${maxAllowedBoxes} hộp.`;
   }
 
   const productUnavailableMatch = trimmedMessage.match(
@@ -47,6 +71,10 @@ export const getErrorMessage = (
   error: unknown,
   fallback = "Đã xảy ra lỗi.",
 ) => {
+  if (typeof error === "string") {
+    return normalizeApiMessage(error);
+  }
+
   const axiosLikeError = error as {
     response?: {
       data?: {

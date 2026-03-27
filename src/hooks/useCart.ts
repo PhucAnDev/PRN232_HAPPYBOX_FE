@@ -38,7 +38,7 @@ const useCart = () => {
     removeItems: (cartItemIds: string[]) =>
       dispatch(removeCartItems(cartItemIds)),
     emptyCart: () => dispatch(emptyCart()),
-    checkout: (req: CheckoutRequest) => dispatch(checkoutCart(req)),
+    checkout: (req: CheckoutRequest) => dispatch(checkoutCart(req)).unwrap(),
     resetState: () => dispatch(resetCartState()),
 
     // Tiện ích: kiểm tra sản phẩm đã trong giỏ chưa

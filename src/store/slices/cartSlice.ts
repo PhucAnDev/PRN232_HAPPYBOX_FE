@@ -104,8 +104,14 @@ export const emptyCart = createAsyncThunk("cart/empty", async () => {
 
 export const checkoutCart = createAsyncThunk(
   "cart/checkout",
-  async (req: CheckoutRequest) => {
-    return await cartService.checkout(req);
+  async (req: CheckoutRequest, { rejectWithValue }) => {
+    try {
+      return await cartService.checkout(req);
+    } catch (error) {
+      return rejectWithValue(
+        getErrorMessage(error, "Khong the dat hang"),
+      );
+    }
   },
 );
 
