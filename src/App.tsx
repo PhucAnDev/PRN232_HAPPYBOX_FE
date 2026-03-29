@@ -32,7 +32,7 @@ export default function App() {
         className="min-h-screen bg-white"
         style={{ fontFamily: "'Montserrat', sans-serif" }}
       >
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" richColors duration={2000} />
         <AppRouter />
       </div>
     </AppNavigationProvider>

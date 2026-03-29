@@ -6,4 +6,6 @@ export const STORAGE_KEYS = {
   POST_LOGIN_PAGE: "postLoginPage",
   MOMO_ORDER_ID: "momoOrderId",
   CHECKOUT_SELECTED_ITEM_IDS: "checkoutSelectedItemIds",
+  RESET_FORGOT_EMAIL: "resetForgotEmail",
+  RESET_OTP: "resetOtp",
 } as const;

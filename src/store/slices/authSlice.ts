@@ -13,6 +13,32 @@ import {
   type StoredAuthSession,
 } from "@/utils/authStorage";
 
+const getStoredResetFlowValue = (key: string) => {
+  try {
+    return sessionStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const persistResetFlowValue = (key: string, value: string) => {
+  try {
+    if (value) {
+      sessionStorage.setItem(key, value);
+      return;
+    }
+
+    sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage access issues outside the browser.
+  }
+};
+
+const clearResetFlowStorage = () => {
+  persistResetFlowValue(STORAGE_KEYS.RESET_FORGOT_EMAIL, "");
+  persistResetFlowValue(STORAGE_KEYS.RESET_OTP, "");
+};
+
 // ====== State type ======
 interface AuthState {
   user: UserAuthInfo | null;
@@ -35,8 +61,8 @@ const initialState: AuthState = {
   refreshToken: storedAuthSession.refreshToken,
   loading: false,
   error: null,
-  forgotEmail: "",
-  resetOtp: "",
+  forgotEmail: getStoredResetFlowValue(STORAGE_KEYS.RESET_FORGOT_EMAIL),
+  resetOtp: getStoredResetFlowValue(STORAGE_KEYS.RESET_OTP),
 };
 
 // ====== Async Thunks (gọi Service) ======
@@ -113,6 +139,7 @@ export const logoutThunk = createAsyncThunk("auth/logout", async () => {
   localStorage.removeItem(STORAGE_KEYS.USER);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_PAGE);
   sessionStorage.removeItem(STORAGE_KEYS.POST_LOGIN_PAGE);
+  clearResetFlowStorage();
 });
 
 export const forgotPasswordThunk = createAsyncThunk(
@@ -167,14 +194,17 @@ const authSlice = createSlice({
     },
     setForgotEmail: (state, action: PayloadAction<string>) => {
       state.forgotEmail = action.payload;
+      persistResetFlowValue(STORAGE_KEYS.RESET_FORGOT_EMAIL, action.payload);
     },
     setResetOtp: (state, action: PayloadAction<string>) => {
       state.resetOtp = action.payload;
+      persistResetFlowValue(STORAGE_KEYS.RESET_OTP, action.payload);
     },
     clearResetFlow: (state) => {
       state.forgotEmail = "";
       state.resetOtp = "";
       state.error = null;
+      clearResetFlowStorage();
     },
     syncSessionFromStorage: (state, action: PayloadAction<StoredAuthSession>) => {
       const currentUserId = state.user?.id ?? null;
@@ -260,6 +290,9 @@ const authSlice = createSlice({
       .addCase(forgotPasswordThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.forgotEmail = action.payload; // lưu email vào store
+        state.resetOtp = "";
+        persistResetFlowValue(STORAGE_KEYS.RESET_FORGOT_EMAIL, action.payload);
+        persistResetFlowValue(STORAGE_KEYS.RESET_OTP, "");
       })
       .addCase(forgotPasswordThunk.rejected, (state, action) => {
         state.loading = false;
@@ -275,6 +308,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.forgotEmail = "";
         state.resetOtp = "";
+        clearResetFlowStorage();
       })
       .addCase(resetPasswordThunk.rejected, (state, action) => {
         state.loading = false;

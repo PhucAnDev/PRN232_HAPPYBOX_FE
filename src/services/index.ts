@@ -10,6 +10,7 @@ export { default as imageService } from "./imageService";
 export { default as inventoryService } from "./inventoryService";
 export { default as orderService } from "./orderService";
 export { default as productService } from "./productService";
+export { default as reportService } from "./reportService";
 export { default as uploadService } from "./uploadService";
 export { default as userService } from "./userService";
 export { default as voucherService } from "./voucherService";

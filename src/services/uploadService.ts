@@ -17,14 +17,15 @@ class UploadService {
   private cloudName = "dn25cy6bo"; // Replace with your cloud_name
   private uploadPreset = "happybox_unsigned"; // Replace with your unsigned upload preset
 
-  /**
-   * Upload image to Cloudinary
-   * @param file - File object from input
-   * @returns Promise with image URL
-   */
-  async uploadImage(file: File): Promise<string> {
+  private async uploadSource(source: File | string): Promise<string> {
     const formData = new FormData();
-    formData.append("file", file);
+
+    if (typeof source === "string") {
+      formData.append("file", source);
+    } else {
+      formData.append("file", source);
+    }
+
     formData.append("upload_preset", this.uploadPreset);
 
     try {
@@ -46,6 +47,24 @@ class UploadService {
       console.error("Cloudinary upload error:", error);
       throw error;
     }
+  }
+
+  /**
+   * Upload image to Cloudinary
+   * @param file - File object from input
+   * @returns Promise with image URL
+   */
+  async uploadImage(file: File): Promise<string> {
+    return this.uploadSource(file);
+  }
+
+  /**
+   * Upload a remotely hosted image to Cloudinary by URL
+   * @param imageUrl - Public image URL
+   * @returns Promise with image URL
+   */
+  async uploadImageFromUrl(imageUrl: string): Promise<string> {
+    return this.uploadSource(imageUrl);
   }
 
   /**

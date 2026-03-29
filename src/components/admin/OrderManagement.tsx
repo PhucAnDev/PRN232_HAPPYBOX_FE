@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import {
   Search,
   Filter,
@@ -19,10 +20,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API_BASE_URL } from "@/constants/env";
-import useCatalog from "@/hooks/useCatalog";
 import useOrders from "@/hooks/useOrders";
-import useUsers from "@/hooks/useUsers";
+import giftBoxService from "@/services/giftBoxService";
+import imageService, { type ImageResponse } from "@/services/imageService";
 import { OrderStatus } from "@/services/orderService";
+import productService from "@/services/productService";
+import userService from "@/services/userService";
 import { CreateOrder } from "./CreateOrder";
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
@@ -37,6 +40,50 @@ const normalizeImageUrl = (url: string | null | undefined) => {
   }
 
   return `${API_ORIGIN}${url.startsWith("/") ? url : `/${url}`}`;
+};
+
+type ImageLike = {
+  url: string;
+  isMain?: boolean;
+  sortOrder?: number;
+};
+
+const extractArrayData = <T,>(payload: unknown): T[] => {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (payload && typeof payload === "object") {
+    const envelope = payload as {
+      success?: boolean;
+      data?: unknown;
+    };
+
+    if (envelope.success === false) {
+      return [];
+    }
+
+    if (Array.isArray(envelope.data)) {
+      return envelope.data as T[];
+    }
+  }
+
+  return [];
+};
+
+const getPreferredImage = (images?: ImageLike[] | null) => {
+  if (!images || images.length === 0) {
+    return "🎁";
+  }
+
+  const sortedImages = [...images].sort(
+    (left, right) =>
+      Number(Boolean(right.isMain)) - Number(Boolean(left.isMain)) ||
+      (left.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        (right.sortOrder ?? Number.MAX_SAFE_INTEGER),
+  );
+
+  return normalizeImageUrl(sortedImages[0]?.url) ?? "🎁";
 };
 
 interface Order {
@@ -81,10 +128,7 @@ export function OrderManagement() {
   const {
     fetchOrders: loadOrders,
     updateOrderStatus,
-    fetchOrderDetail,
   } = useOrders();
-  const { fetchProductDetail, fetchGiftBoxDetail } = useCatalog();
-  const { fetchUserDetail } = useUsers();
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -118,39 +162,6 @@ export function OrderManagement() {
         data: await updateOrderStatus(id, status),
       },
     }),
-    getById: async (id: string) => ({
-      data: {
-        success: true,
-        data: await fetchOrderDetail(id),
-      },
-    }),
-  };
-  const userService = {
-    getById: async (id: string) => ({
-      data: await fetchUserDetail(id),
-    }),
-  };
-  const productService = {
-    getById: async (id: string) => {
-      const data = await fetchProductDetail(id);
-      return {
-        data: {
-          success: true,
-          data: data.product,
-        },
-      };
-    },
-  };
-  const giftBoxService = {
-    getById: async (id: string) => {
-      const data = await fetchGiftBoxDetail(id);
-      return {
-        data: {
-          success: true,
-          data,
-        },
-      };
-    },
   };
 
   // Fetch data from API
@@ -193,79 +204,85 @@ export function OrderManagement() {
         throw new Error(response.data.message);
       }
 
-      // Map API data to UI format
       const apiOrders = response.data.data;
-      const mappedOrders: Order[] = await Promise.all(
-        apiOrders.map(async (apiOrder) => {
-          // Fetch user data
-          let userName = "N/A";
-          let userEmail = "";
-          let userPhone = "";
-          let userAddress = apiOrder.shippingAddress;
+      const [usersResult, productsResult, giftBoxesResult, imagesResult] =
+        await Promise.allSettled([
+          userService.getAll(),
+          productService.getAll(),
+          giftBoxService.getAll(),
+          imageService.getAll(),
+        ]);
 
-          try {
-            const userResponse = await userService.getById(apiOrder.userId);
-            // UserController returns UserResponse directly (not wrapped in ApiResponse)
-            const rawData = userResponse.data as any;
-            // Handle both wrapped { success, data } and raw UserResponse formats
-            const user = rawData?.data || rawData;
-            if (user && (user.fullName || user.username || user.email)) {
-              userName = user.fullName || user.username || "N/A";
-              userEmail = user.email || "";
-              userPhone = user.phone || "";
-              userAddress = apiOrder.shippingAddress || user.address || "";
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch user ${apiOrder.userId}`, err);
-          }
+      const users =
+        usersResult.status === "fulfilled"
+          ? extractArrayData(usersResult.value.data)
+          : [];
+      const products =
+        productsResult.status === "fulfilled"
+          ? extractArrayData(productsResult.value.data)
+          : [];
+      const giftBoxes =
+        giftBoxesResult.status === "fulfilled"
+          ? extractArrayData(giftBoxesResult.value.data)
+          : [];
+      const images =
+        imagesResult.status === "fulfilled"
+          ? extractArrayData(imagesResult.value.data)
+          : [];
 
-          // Map order details with product info
-          const items = await Promise.all(
-            apiOrder.orderDetails.map(async (detail) => {
+      const usersById = new Map(users.map((user) => [user.id, user]));
+      const productsById = new Map(products.map((product) => [product.id, product]));
+      const giftBoxesById = new Map(giftBoxes.map((giftBox) => [giftBox.id, giftBox]));
+      const productImagesById = new Map<string, ImageResponse[]>();
+      const giftBoxImagesById = new Map<string, ImageResponse[]>();
+
+      images.forEach((image) => {
+        if (image.productId) {
+          const currentImages = productImagesById.get(image.productId) ?? [];
+          currentImages.push(image);
+          productImagesById.set(image.productId, currentImages);
+        }
+
+        if (image.giftBoxId) {
+          const currentImages = giftBoxImagesById.get(image.giftBoxId) ?? [];
+          currentImages.push(image);
+          giftBoxImagesById.set(image.giftBoxId, currentImages);
+        }
+      });
+
+      const mappedOrders: Order[] = apiOrders.map((apiOrder) => {
+          const user = usersById.get(apiOrder.userId);
+          const userName =
+            user?.fullName ||
+            user?.username ||
+            user?.email?.split("@")[0] ||
+            "Khách hàng";
+          const userEmail = user?.email || "";
+          const userPhone = user?.phone || "";
+          const userAddress = apiOrder.shippingAddress || user?.address || "";
+
+          const items = apiOrder.orderDetails.map((detail) => {
               let productName = detail.giftBoxId
-                ? "Gio qua"
+                ? "Giỏ quà"
                 : detail.productId
-                  ? "San pham"
-                  : "Mat hang";
+                  ? "Sản phẩm"
+                  : "Mặt hàng";
               let productImage = "🎁";
 
-              try {
-                if (detail.productId) {
-                  const prodResponse = await productService.getById(
-                    detail.productId,
-                  );
-                  if (prodResponse.data.success) {
-                    productName = prodResponse.data.data.name || productName;
-                    const images = prodResponse.data.data.images || [];
-                    const imageUrl =
-                      images.find((image: any) => image.isMain)?.url ||
-                      images[0]?.url;
-                    const normalizedImageUrl = normalizeImageUrl(imageUrl);
-                    if (normalizedImageUrl) {
-                      productImage = normalizedImageUrl;
-                    }
-                  }
-                } else if (detail.giftBoxId) {
-                  const giftBoxResponse = await giftBoxService.getById(
-                    detail.giftBoxId,
-                  );
-                  if (giftBoxResponse.data.success) {
-                    productName =
-                      giftBoxResponse.data.data.name || productName;
-                    const images = giftBoxResponse.data.data.images || [];
-                    const imageUrl =
-                      images.find((image: any) => image.isMain)?.url ||
-                      images[0]?.url;
-                    const normalizedImageUrl = normalizeImageUrl(imageUrl);
-                    if (normalizedImageUrl) {
-                      productImage = normalizedImageUrl;
-                    }
-                  }
-                }
-              } catch (err) {
-                console.warn(
-                  `Failed to fetch order item ${detail.productId || detail.giftBoxId}`,
-                  err,
+              if (detail.productId) {
+                const product = productsById.get(detail.productId);
+                productName = product?.name || productName;
+                productImage = getPreferredImage(
+                  productImagesById.get(detail.productId) ??
+                    product?.images,
+                );
+              } else if (detail.giftBoxId) {
+                const giftBox = giftBoxesById.get(detail.giftBoxId);
+                productName = giftBox?.name || productName;
+                productImage = getPreferredImage(
+                  giftBox?.images && giftBox.images.length > 0
+                    ? giftBox.images
+                    : giftBoxImagesById.get(detail.giftBoxId),
                 );
               }
 
@@ -276,10 +293,8 @@ export function OrderManagement() {
                 quantity: detail.quantity,
                 price: detail.unitPrice,
               };
-            }),
-          );
+            });
 
-          // Map order status to UI format (backend returns numeric OrderStatus enum)
           const statusMap: Record<OrderStatus, Order["orderStatus"]> = {
             [OrderStatus.Pending]: "pending",
             [OrderStatus.Confirmed]: "confirmed",
@@ -317,8 +332,7 @@ export function OrderManagement() {
             paymentMethod: apiOrder.paymentMethod,
             note: apiOrder.note,
           };
-        }),
-      );
+        });
 
       setOrders(mappedOrders);
     } catch (err: any) {
@@ -468,12 +482,19 @@ export function OrderManagement() {
 
       setShowStatusModal(false);
       setSelectedOrder(null);
+      toast.success("Cập nhật trạng thái đơn hàng thành công.");
 
       console.log(
         `✅ Đã cập nhật trạng thái đơn hàng ${selectedOrder.id} thành ${newStatus}`,
       );
     } catch (err: any) {
       console.error("Error updating order status:", err);
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Có lỗi xảy ra khi cập nhật trạng thái đơn hàng.",
+      );
+      return;
       alert(`Lỗi khi cập nhật trạng thái: ${err?.message || "Unknown error"}`);
     }
   };

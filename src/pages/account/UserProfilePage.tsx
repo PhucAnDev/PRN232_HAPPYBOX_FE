@@ -182,7 +182,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
 
   const handleSaveChanges = () => {
     // Save changes logic
-    toast.success("Thông tin đã được cp nhật thành công!");
+    toast.success("Thông tin đã được cập nhật thành công!");
   };
 
   const handleLogout = async () => {
@@ -193,7 +193,17 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
 
   const handleDeleteGiftBasket = (id: string) => {
     if (confirm("Bạn có chắc muốn xóa giỏ quà này?")) {
-      alert(`Đã xóa giỏ quà ${id}`);
+      const basket = savedGiftBaskets.find((item) => item.id === id);
+      setGiftBoxes((previous) => previous.filter((giftBox) => giftBox.id !== id));
+      if (selectedBasket?.id === id) {
+        setSelectedBasket(null);
+        setIsViewDialogOpen(false);
+      }
+      toast.success(
+        basket
+          ? `Đã xóa giỏ quà "${basket.name}".`
+          : "Đã xóa giỏ quà thành công.",
+      );
     }
   };
 
@@ -221,7 +231,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
 
       if ((result as any)?.error == null) {
         toast.success(`Đã thêm "${basket.name}" vào giỏ hàng`, {
-          duration: 3000,
+          duration: 2000,
         });
       } else {
         toast.error("Không thể thêm vào giỏ hàng. Vui lòng thử lại!");
@@ -240,6 +250,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
         richColors
         expand={false}
         closeButton
+        duration={2000}
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

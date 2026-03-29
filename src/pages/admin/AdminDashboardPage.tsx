@@ -15,6 +15,7 @@ import { RevenueReport } from "@/components/admin/RevenueReport";
 import { VoucherManagement } from "@/components/admin/VoucherManagement";
 import { HampersManagement } from "@/components/admin/HampersManagement";
 import { CustomGiftManagement } from "@/components/admin/CustomGiftManagement";
+import { CategoryManagement } from "@/components/admin/CategoryManagement";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { APP_PAGES } from "@/constants/pages";
@@ -36,6 +37,7 @@ import {
   LogOut,
   AlertTriangle,
   Tag,
+  Folder,
   Gift,
   Box,
   Sparkles,
@@ -67,6 +69,7 @@ type AdminMenuId =
   | "orders"
   | "customers"
   | "vouchers"
+  | "categories"
   | "reports"
   | "settings";
 
@@ -87,6 +90,7 @@ const ADMIN_MENU_PATHS: Record<AdminMenuId, string> = {
   orders: `${ADMIN_BASE_PATH}/don-hang`,
   customers: `${ADMIN_BASE_PATH}/khach-hang`,
   vouchers: `${ADMIN_BASE_PATH}/ma-giam-gia`,
+  categories: `${ADMIN_BASE_PATH}/danh-muc`,
   reports: `${ADMIN_BASE_PATH}/bao-cao`,
   settings: `${ADMIN_BASE_PATH}/cai-dat`,
 };
@@ -145,6 +149,13 @@ function getAdminRouteState(pathname: string): AdminRouteState {
     case "vouchers":
       return {
         activeMenu: "vouchers",
+        isProductsExpanded: false,
+        activeProductSubmenu: null,
+      };
+    case "danh-muc":
+    case "categories":
+      return {
+        activeMenu: "categories",
         isProductsExpanded: false,
         activeProductSubmenu: null,
       };
@@ -291,6 +302,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     { id: "orders", label: "Đơn Hàng", icon: ShoppingCart, hasSubmenu: false, children: null },
     { id: "customers", label: "Khách Hàng", icon: Users, hasSubmenu: false, children: null },
     { id: "vouchers", label: "Mã Giảm Giá", icon: Tag, hasSubmenu: false, children: null },
+    { id: "categories", label: "Danh Mục", icon: Folder, hasSubmenu: false, children: null },
     { id: "reports", label: "Báo Cáo", icon: BarChart3, hasSubmenu: false, children: null },
     { id: "settings", label: "Cài Đặt", icon: Settings, hasSubmenu: false, children: null },
   ];
@@ -467,6 +479,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <CustomerManagementSplit />
         ) : activeMenu === "vouchers" ? (
           <VoucherManagement />
+        ) : activeMenu === "categories" ? (
+          <CategoryManagement />
         ) : activeMenu === "reports" ? (
           <RevenueReport />
         ) : activeMenu === "settings" ? (

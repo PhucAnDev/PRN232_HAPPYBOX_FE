@@ -8,6 +8,7 @@ import useAuth from "@/hooks/useAuth";
 import useCatalog from "@/hooks/useCatalog";
 import { useProducts } from "@/hooks/useProduct";
 import useCart from "@/hooks/useCart";
+import uploadService from "@/services/uploadService";
 import { toast } from "sonner";
 import { redirectToLogin } from "@/utils/authRedirect";
 import { resolveImageUrl } from "@/utils/imageUrl";
@@ -47,6 +48,9 @@ const toPreviewPath = (url: string) => {
     return url.startsWith("/") ? url : `/${url}`;
   }
 };
+
+const isCloudinaryUrl = (url: string) =>
+  /^https?:\/\/res\.cloudinary\.com\//i.test(url);
 
 const normalizeText = (value: string) =>
   value
@@ -482,10 +486,6 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
 
     setIsConfirming(true);
 
-    // BE validation requires path to start with /images/custom-baskets/temp/
-    // So we need to strip the base URL
-    const previewImageUrl = toPreviewPath(generatedGiftImage);
-
     const productItems = selectedProducts
       .map((productId) => {
         const product = products.find((p) => p.id === productId);
@@ -499,6 +499,11 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       .filter(Boolean);
 
     try {
+      const resolvedPreviewImageUrl = resolveImageUrl(generatedGiftImage);
+      const previewImageUrl = isCloudinaryUrl(resolvedPreviewImageUrl)
+        ? resolvedPreviewImageUrl
+        : await uploadService.uploadImageFromUrl(resolvedPreviewImageUrl);
+
       const response = await api.post<{ success: boolean; data: string }>(
         "/custom-baskets/confirm",
         {
@@ -511,8 +516,11 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
         setConfirmedGiftBoxId(response.data.data);
         setShowConfirmSuccess(true);
       }
-    } catch {
-      // handle silently
+    } catch (error) {
+      console.error("Failed to confirm custom basket:", error);
+      toast.error(
+        "Khong the tai anh preview len Cloudinary hoac xac nhan gio qua. Vui long thu lai.",
+      );
     } finally {
       setIsConfirming(false);
     }
@@ -536,7 +544,7 @@ export function CustomGiftBuilder({ onNavigate }: CustomGiftBuilderProps) {
       if ((result as any)?.error == null) {
         toast.success("Đã thêm giỏ quà vào giỏ hàng!", {
           description: "Bạn có thể tiếp tục mua sắm hoặc vào giỏ hàng để thanh toán.",
-          duration: 4000,
+          duration: 2000,
         });
       } else {
         toast.error("Không thể thêm vào giỏ hàng. Vui lòng thử lại!");

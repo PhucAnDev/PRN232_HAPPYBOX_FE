@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -245,11 +246,12 @@ export function VoucherManagement() {
       setVouchers([newVoucher, ...vouchers]);
       setIsAddDialogOpen(false);
       resetForm();
+      toast.success("Thêm voucher thành công.");
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to create voucher",
+          "Không thể thêm voucher.",
       );
     } finally {
       setLoading(false);
@@ -287,11 +289,12 @@ export function VoucherManagement() {
       setIsEditDialogOpen(false);
       setSelectedVoucher(null);
       resetForm();
+      toast.success("Cập nhật voucher thành công.");
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to update voucher",
+          "Không thể cập nhật voucher.",
       );
     } finally {
       setLoading(false);
@@ -312,11 +315,12 @@ export function VoucherManagement() {
 
       setIsDeleteDialogOpen(false);
       setSelectedVoucher(null);
+      toast.success("Xóa voucher thành công.");
     } catch (err: any) {
-      alert(
+      toast.error(
         err.response?.data?.message ||
           err.message ||
-          "Failed to delete voucher",
+          "Không thể xóa voucher.",
       );
     } finally {
       setLoading(false);

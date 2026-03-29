@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   Upload,
   Save,
@@ -48,6 +49,8 @@ export function AdminSettings() {
     // Save logic here
     console.log("Saving settings:", formData);
     setHasChanges(false);
+    toast.success("Đã lưu thay đổi thành công!");
+    return;
     alert("Đã lưu thay đổi thành công!");
   };
 

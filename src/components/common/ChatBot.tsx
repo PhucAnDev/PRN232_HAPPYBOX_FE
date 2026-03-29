@@ -11,12 +11,20 @@ import {
   HelpCircle,
   Gift,
   Loader2,
+  Eye,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { APP_PAGES } from "@/constants/pages";
+import { useAppNavigation } from "@/context/AppNavigationContext";
+import useAuth from "@/hooks/useAuth";
 import useChatbot from "@/hooks/useChatbot";
+import useCart from "@/hooks/useCart";
 import type { ProductSuggestion } from "@/services/chatbotService";
+import { redirectToLogin } from "@/utils/authRedirect";
 import { resolveImageUrl } from "@/utils/imageUrl";
+import { setViewProduct } from "@/utils/productViewStore";
 
 interface Message {
   id: string;
@@ -29,7 +37,11 @@ interface Message {
 
 export function ChatBot() {
   const { sendMessage } = useChatbot();
+  const { navigate, currentPage } = useAppNavigation();
+  const { isLoggedIn } = useAuth();
+  const { addItem } = useCart();
   const [isOpen, setIsOpen] = useState(false);
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -132,6 +144,42 @@ export function ChatBot() {
       style: "currency",
       currency: "VND",
     }).format(amount);
+  };
+
+  const handleViewSuggestedProduct = (product: ProductSuggestion) => {
+    setViewProduct({ id: product.id, type: "individual" });
+    setIsOpen(false);
+    navigate(APP_PAGES.PRODUCT);
+  };
+
+  const handleAddSuggestedProduct = async (product: ProductSuggestion) => {
+    if (!isLoggedIn) {
+      setIsOpen(false);
+      redirectToLogin(
+        navigate,
+        currentPage,
+        "Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.",
+      );
+      return;
+    }
+
+    try {
+      setAddingProductId(product.id);
+      const result = await addItem({ productId: product.id, quantity: 1 });
+
+      if ((result as { error?: unknown }).error == null) {
+        toast.success(`Đã thêm "${product.name}" vào giỏ hàng.`, {
+          duration: 2000,
+        });
+        return;
+      }
+
+      toast.error("Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.");
+    } catch {
+      toast.error("Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.");
+    } finally {
+      setAddingProductId(null);
+    }
   };
 
   return (
@@ -240,7 +288,7 @@ export function ChatBot() {
                             (product: ProductSuggestion) => (
                               <div
                                 key={product.id}
-                                className="bg-white border border-gray-200 rounded-lg p-3 hover:border-[#D4AF37] transition-all cursor-pointer"
+                                className="group relative rounded-lg border border-gray-200 bg-white p-3 pr-14 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#D4AF37] hover:shadow-md"
                               >
                                 <div className="flex gap-3">
                                   {product.imageUrl && (
@@ -260,6 +308,51 @@ export function ChatBot() {
                                     <p className="text-sm font-bold text-[#B71C1C] mt-1">
                                       {formatCurrency(product.price)}
                                     </p>
+                                  </div>
+                                </div>
+                                <div
+                                  data-chatbot-action="true"
+                                  className="invisible absolute right-3 top-1/2 z-10 flex -translate-y-1/2 translate-x-1 flex-col gap-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100"
+                                >
+                                  <div
+                                    data-chatbot-action="true"
+                                    className="flex flex-col gap-2"
+                                  >
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      data-chatbot-action="true"
+                                      aria-label="Xem chi tiết"
+                                      title="Xem chi tiết"
+                                      className="h-9 w-9 rounded-xl border-[#B71C1C] bg-white text-[#B71C1C] shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:bg-[#B71C1C] hover:text-white hover:shadow-[0_10px_24px_rgba(183,28,28,0.22)]"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleViewSuggestedProduct(product);
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="icon"
+                                      aria-label="Thêm vào giỏ hàng"
+                                      title="Thêm vào giỏ hàng"
+                                      className="h-9 w-9 rounded-xl bg-gradient-to-r from-[#B71C1C] to-[#8B1538] text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 hover:from-[#8B1538] hover:to-[#B71C1C] hover:shadow-[0_12px_28px_rgba(139,21,56,0.32)]"
+                                      disabled={addingProductId === product.id}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void handleAddSuggestedProduct(product);
+                                      }}
+                                    >
+                                      {addingProductId === product.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <ShoppingCart className="h-4 w-4" />
+                                      )}
+                                    </Button>
                                   </div>
                                 </div>
                               </div>

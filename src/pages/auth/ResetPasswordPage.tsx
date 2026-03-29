@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +17,24 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [localError, setLocalError] = useState("");
   const {
+    forgotEmail,
+    resetOtp,
     resetPassword,
     resetFlow,
     loading: isLoading,
     error: apiError,
   } = usePasswordReset();
+
+  useEffect(() => {
+    if (!forgotEmail) {
+      onNavigate?.("forgot-password");
+      return;
+    }
+
+    if (!resetOtp) {
+      onNavigate?.("verify-otp");
+    }
+  }, [forgotEmail, onNavigate, resetOtp]);
 
   // Password strength checker
   const getPasswordStrength = (password: string) => {
@@ -56,6 +69,18 @@ export function ResetPassword({ onNavigate }: ResetPasswordProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError("");
+
+    if (!forgotEmail) {
+      setLocalError("Vui lòng nhập email để bắt đầu lại quá trình đặt lại mật khẩu.");
+      onNavigate?.("forgot-password");
+      return;
+    }
+
+    if (!resetOtp) {
+      setLocalError("Vui lòng nhập mã OTP trước khi đặt lại mật khẩu.");
+      onNavigate?.("verify-otp");
+      return;
+    }
 
     const validationError = validatePassword();
     if (validationError) {

@@ -15,7 +15,10 @@ import { InventoryStatus } from "@/services/inventoryService";
 import type { InventoryResponse } from "@/services/inventoryService";
 import type { ProductResponse } from "@/services/productService";
 import { redirectToLogin } from "@/utils/authRedirect";
-import { getViewProduct } from "@/utils/productViewStore";
+import {
+  getViewProduct,
+  VIEW_PRODUCT_CHANGE_EVENT,
+} from "@/utils/productViewStore";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600";
 
@@ -50,6 +53,7 @@ export function ProductDetail({ onNavigate }: ProductDetailProps) {
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
   const [cartSuccess, setCartSuccess] = useState(false);
+  const [viewVersion, setViewVersion] = useState(0);
   const giftBoxService = {
     getById: async (id: string) => ({
       data: {
@@ -100,6 +104,21 @@ export function ProductDetail({ onNavigate }: ProductDetailProps) {
   };
 
   useEffect(() => {
+    const handleViewChange = () => {
+      setViewVersion((prev) => prev + 1);
+    };
+
+    window.addEventListener(VIEW_PRODUCT_CHANGE_EVENT, handleViewChange);
+    return () =>
+      window.removeEventListener(VIEW_PRODUCT_CHANGE_EVENT, handleViewChange);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setSelectedImage(0);
+    setQuantity(1);
+
     const view = getViewProduct();
     if (!view) {
       setError("Không tìm thấy thông tin sản phẩm.");
@@ -157,7 +176,7 @@ export function ProductDetail({ onNavigate }: ProductDetailProps) {
         .catch(() => setError("Không thể tải thông tin sản phẩm."))
         .finally(() => setLoading(false));
     }
-  }, []);
+  }, [viewVersion]);
 
   const formatPrice = (price: number) =>
     price.toLocaleString("vi-VN") + " VND";

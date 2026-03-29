@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "../store/store";
 import {
@@ -8,18 +9,22 @@ import {
 const useDashboard = () => {
   const dispatch = useDispatch<AppDispatch>();
   const dashboard = useSelector((state: RootState) => state.dashboard);
-
-  return {
-    ...dashboard,
-    fetchSnapshot: (
-      startDate: string,
-      endDate: string,
-      recentLimit?: number,
-    ) =>
+  const fetchSnapshot = useCallback(
+    (startDate: string, endDate: string, recentLimit?: number) =>
       dispatch(
         fetchDashboardSnapshot({ startDate, endDate, recentLimit }),
       ).unwrap(),
-    clearError: () => dispatch(clearDashboardError()),
+    [dispatch],
+  );
+  const clearError = useCallback(
+    () => dispatch(clearDashboardError()),
+    [dispatch],
+  );
+
+  return {
+    ...dashboard,
+    fetchSnapshot,
+    clearError,
   };
 };
 

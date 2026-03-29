@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useCatalog from "@/hooks/useCatalog";
@@ -335,8 +336,14 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
           h.id === id ? { ...h, isActive: !h.isActive } : h
         )
       );
+      toast.success(
+        hamper.isActive
+          ? "Đã ẩn giỏ quà thành công."
+          : "Đã kích hoạt giỏ quà thành công.",
+      );
     } catch (err) {
       console.error("Failed to toggle active state:", err);
+      toast.error("Không thể cập nhật trạng thái giỏ quà.");
     }
   };
 
@@ -344,8 +351,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
     try {
       await giftBoxService.delete(id);
       setHampers(hampers.filter((hamper) => hamper.id !== id));
+      toast.success("Xóa giỏ quà thành công.");
     } catch (err) {
       console.error("Failed to delete hamper:", err);
+      toast.error("Không thể xóa giỏ quà.");
     }
   };
 
@@ -407,9 +416,11 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
           setHampers(sortByDate([mapToHamper(res.data.data), ...hampers]));
         }
         setIsAddModalOpen(false);
+        toast.success("Thêm giỏ quà thành công.");
       }
     } catch (err) {
       console.error("Failed to save hamper:", err);
+      toast.error("Không thể thêm giỏ quà.");
     } finally {
       setSaving(false);
     }
@@ -442,9 +453,11 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
 
         setHampers(sortByDate(nextHampers));
         setIsEditModalOpen(false);
+        toast.success("Cập nhật giỏ quà thành công.");
       }
     } catch (err) {
       console.error("Failed to update hamper:", err);
+      toast.error("Không thể cập nhật giỏ quà.");
     } finally {
       setSaving(false);
     }
@@ -1061,10 +1074,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                             productPrice: selectedProduct.price,
                             quantity: parseInt(newComponent.quantity),
                           };
-                          setFormData({
-                            ...formData,
-                            boxComponents: [...formData.boxComponents, newBoxComponent],
-                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            boxComponents: [...prev.boxComponents, newBoxComponent],
+                          }));
                           setNewComponent({ productId: "", quantity: "" });
                           setProductSearchTerm("");
                         }
@@ -1103,10 +1116,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                           </div>
                           <button
                             onClick={() =>
-                              setFormData({
-                                ...formData,
-                                boxComponents: formData.boxComponents.filter((_, i) => i !== index),
-                              })
+                              setFormData((prev) => ({
+                                ...prev,
+                                boxComponents: prev.boxComponents.filter((_, i) => i !== index),
+                              }))
                             }
                             className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                           >
@@ -1186,11 +1199,14 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                   <Input
                     placeholder="https://images.unsplash.com/photo-..."
                     onBlur={(e) => {
-                      if (e.target.value) {
-                        setFormData({
-                          ...formData,
-                          images: [...formData.images, e.target.value],
-                        });
+                      const value = e.target.value.trim();
+                      if (value) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          images: prev.images.includes(value)
+                            ? prev.images
+                            : [...prev.images, value],
+                        }));
                         e.target.value = "";
                       }
                     }}
@@ -1211,12 +1227,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                         />
                         <button
                           onClick={() =>
-                            setFormData({
-                              ...formData,
-                              images: formData.images.filter(
-                                (_, i) => i !== index
-                              ),
-                            })
+                            setFormData((prev) => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index),
+                            }))
                           }
                           className="absolute top-1 right-1 p-1 bg-red-500 rounded-full"
                         >
@@ -1522,10 +1536,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                             productPrice: selectedProduct.price,
                             quantity: parseInt(newComponent.quantity),
                           };
-                          setFormData({
-                            ...formData,
-                            boxComponents: [...formData.boxComponents, newBoxComponent],
-                          });
+                          setFormData((prev) => ({
+                            ...prev,
+                            boxComponents: [...prev.boxComponents, newBoxComponent],
+                          }));
                           setNewComponent({ productId: "", quantity: "" });
                           setProductSearchTerm("");
                         }
@@ -1564,10 +1578,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                           </div>
                           <button
                             onClick={() =>
-                              setFormData({
-                                ...formData,
-                                boxComponents: formData.boxComponents.filter((_, i) => i !== index),
-                              })
+                              setFormData((prev) => ({
+                                ...prev,
+                                boxComponents: prev.boxComponents.filter((_, i) => i !== index),
+                              }))
                             }
                             className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                           >
@@ -1647,11 +1661,14 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                   <Input
                     placeholder="https://images.unsplash.com/photo-..."
                     onBlur={(e) => {
-                      if (e.target.value) {
-                        setFormData({
-                          ...formData,
-                          images: [...formData.images, e.target.value],
-                        });
+                      const value = e.target.value.trim();
+                      if (value) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          images: prev.images.includes(value)
+                            ? prev.images
+                            : [...prev.images, value],
+                        }));
                         e.target.value = "";
                       }
                     }}
@@ -1673,12 +1690,10 @@ export function HampersManagement({ onNavigate }: HampersManagementProps) {
                         />
                         <button
                           onClick={() =>
-                            setFormData({
-                              ...formData,
-                              images: formData.images.filter(
-                                (_, i) => i !== index
-                              ),
-                            })
+                            setFormData((prev) => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index),
+                            }))
                           }
                           className="absolute top-1 right-1 p-1 bg-red-500 rounded-full"
                         >

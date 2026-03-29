@@ -18,6 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import useCatalog from "@/hooks/useCatalog";
 import useUsers from "@/hooks/useUsers";
@@ -321,6 +331,7 @@ export function CustomGiftManagement() {
   const [userWarning, setUserWarning] = useState<string | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedBasket, setSelectedBasket] = useState<GiftBasket | null>(null);
+  const [basketToDelete, setBasketToDelete] = useState<GiftBasket | null>(null);
   const [isDeletingBasketId, setIsDeletingBasketId] = useState<string | null>(
     null,
   );
@@ -462,14 +473,12 @@ export function CustomGiftManagement() {
     setIsViewDialogOpen(true);
   };
 
-  const handleDeleteBasket = async (basketId: string) => {
-    const shouldDelete = window.confirm(
-      "Bạn có chắc muốn xóa giỏ quà thiết kế này không?",
-    );
-
-    if (!shouldDelete) {
+  const handleDeleteBasket = async () => {
+    if (!basketToDelete) {
       return;
     }
+
+    const basketId = basketToDelete.id;
 
     try {
       setIsDeletingBasketId(basketId);
@@ -511,6 +520,7 @@ export function CustomGiftManagement() {
         setIsViewDialogOpen(false);
       }
 
+      setBasketToDelete(null);
       toast.success("Đã xóa giỏ quà thiết kế.");
     } catch (deleteError) {
       console.error("Error deleting gift basket:", deleteError);
@@ -964,7 +974,7 @@ export function CustomGiftManagement() {
                                         <Eye className="h-4 w-4" />
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteBasket(basket.id)}
+                                        onClick={() => setBasketToDelete(basket)}
                                         className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                                         title="Xóa giỏ quà"
                                         disabled={isDeleting}
@@ -1135,6 +1145,99 @@ export function CustomGiftManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={basketToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingBasketId) {
+            setBasketToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-[520px] overflow-hidden border-0 p-0">
+          <div className="bg-gradient-to-r from-[#B71C1C] via-[#D32F2F] to-[#B71C1C] px-5 py-4 text-white">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <AlertDialogHeader className="text-left">
+                <AlertDialogTitle
+                  className="text-xl font-bold text-white"
+                  style={{ fontFamily: "'Playfair Display', 'Noto Serif', serif" }}
+                >
+                  Xác nhận xóa giỏ quà
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm leading-6 text-white/90">
+                  Bạn sắp xóa một giỏ quà thiết kế riêng khỏi danh sách quản lý. Hãy kiểm tra lại thông tin trước khi
+                  xác nhận.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+          </div>
+
+          <div className="space-y-4 bg-[#FFFDF5] p-5">
+            {basketToDelete && (
+              <div className="rounded-2xl border border-[#D4AF37]/30 bg-white p-4 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+                    <img
+                      src={basketToDelete.image}
+                      alt={basketToDelete.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-base font-bold text-gray-900">
+                      {basketToDelete.name}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Ngày tạo: {basketToDelete.createdDate}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="rounded-full bg-red-50 px-3 py-1 font-semibold text-[#B71C1C]">
+                        {basketToDelete.itemsCount} sản phẩm
+                      </span>
+                      <span className="rounded-full bg-[#FFF4CC] px-3 py-1 font-semibold text-[#B8860B]">
+                        {formatCurrency(basketToDelete.total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-red-100 bg-red-50/70 p-4 text-sm leading-6 text-red-700">
+              Sau khi xóa, giỏ quà này sẽ không còn xuất hiện trong trang quản trị thiết kế riêng của khách hàng.
+            </div>
+
+            <AlertDialogFooter className="gap-3">
+              <AlertDialogCancel
+                disabled={!!isDeletingBasketId}
+                className="mt-0 border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Giữ lại
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleDeleteBasket();
+                }}
+                disabled={!!isDeletingBasketId}
+                className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] text-white hover:from-[#8B1538] hover:to-[#B71C1C]"
+              >
+                {isDeletingBasketId ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xóa giỏ quà"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

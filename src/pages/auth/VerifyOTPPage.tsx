@@ -17,6 +17,12 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { forgotEmail, forgotPassword, setOtp: storeOtp } = usePasswordReset();
 
+  useEffect(() => {
+    if (!forgotEmail) {
+      onNavigate?.("forgot-password");
+    }
+  }, [forgotEmail, onNavigate]);
+
   // Timer countdown
   useEffect(() => {
     if (timer > 0) {
@@ -80,6 +86,12 @@ export function VerifyOTP({ onNavigate }: VerifyOTPProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!forgotEmail) {
+      setError("Vui lòng nhập email để nhận mã OTP trước.");
+      onNavigate?.("forgot-password");
+      return;
+    }
 
     const otpValue = otp.join("");
     if (otpValue.length !== 6) {

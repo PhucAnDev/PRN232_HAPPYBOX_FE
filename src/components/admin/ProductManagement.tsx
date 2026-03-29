@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -25,6 +25,7 @@ import {
   InventoryStatus,
   type InventoryResponse,
 } from "@/services/inventoryService";
+import { toast } from "sonner";
 
 interface Product {
   id: string;
@@ -38,6 +39,28 @@ interface Product {
   image: string;
   inventory?: InventoryResponse | null;
 }
+
+const getReadableErrorMessage = (
+  error: any,
+  fallback: string,
+): string => {
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error?.response?.data?.errors) {
+    const errors = error.response.data.errors;
+    return Object.keys(errors)
+      .map((key) => `${key}: ${errors[key].join(", ")}`)
+      .join("\n");
+  }
+
+  if (error?.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
 
 export function ProductManagement() {
   const {
@@ -60,6 +83,9 @@ export function ProductManagement() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -326,29 +352,56 @@ export function ProductManagement() {
               : p,
           ),
         );
+        toast.success(
+          product.status === "active"
+            ? "Đã ẩn sản phẩm thành công."
+            : "Đã kích hoạt sản phẩm thành công.",
+        );
       } else {
-        alert("Không thể cập nhật trạng thái");
+        toast.error("Không thể cập nhật trạng thái sản phẩm.");
       }
     } catch (err) {
       console.error("Error toggling status:", err);
-      alert("Có lỗi xảy ra khi cập nhật trạng thái");
+      toast.error(
+        getReadableErrorMessage(err, "Có lỗi xảy ra khi cập nhật trạng thái."),
+      );
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
 
+    setDeleting(true);
     try {
-      const response = await productService.delete(productId);
+      const response = await productService.delete(productToDelete.id);
 
       if (response.data.success) {
-        setProducts(products.filter((product) => product.id !== productId));
+        setProducts((previous) =>
+          previous.filter((product) => product.id !== productToDelete.id),
+        );
+        toast.success("Xóa sản phẩm thành công.");
+        setProductToDelete(null);
       } else {
-        alert("Không thể xóa sản phẩm");
+        toast.error("Không thể xóa sản phẩm.");
       }
     } catch (err) {
       console.error("Error deleting product:", err);
-      alert("Có lỗi xảy ra khi xóa sản phẩm");
+      const errorMessage =
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        err.response &&
+        typeof err.response === "object" &&
+        "data" in err.response &&
+        err.response.data &&
+        typeof err.response.data === "object" &&
+        "message" in err.response.data &&
+        typeof err.response.data.message === "string"
+          ? err.response.data.message
+          : "Có lỗi xảy ra khi xóa sản phẩm.";
+      toast.error(errorMessage);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -403,29 +456,31 @@ export function ProductManagement() {
   const handleSaveProduct = async () => {
     // Validation
     if (!formData.name.trim()) {
-      alert("Vui lòng nhập tên sản phẩm");
+      toast.error("Vui lòng nhập tên sản phẩm.");
       return;
     }
     if (!formData.sku.trim()) {
-      alert("Vui lòng nhập SKU");
+      toast.error("Vui lòng nhập SKU.");
       return;
     }
     if (!formData.categoryId) {
-      alert("Vui lòng chọn danh mục");
+      toast.error("Vui lòng chọn danh mục.");
       return;
     }
     if (!formData.price || parseFloat(formData.price) <= 0) {
-      alert("Vui lòng nhập giá hợp lệ");
+      toast.error("Vui lòng nhập giá hợp lệ.");
       return;
     }
     if (!formData.quantity || parseInt(formData.quantity) < 0) {
-      alert("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0)");
+      toast.error("Vui lòng nhập số lượng tồn kho hợp lệ (>= 0).");
       return;
     }
     if (!formData.minStockLevel || parseInt(formData.minStockLevel) < 0) {
-      alert("Vui lòng nhập số lượng tối thiểu hợp lệ (>= 0)");
+      toast.error("Vui lòng nhập số lượng tối thiểu hợp lệ (>= 0).");
       return;
     }
+
+    setSaving(true);
 
     try {
       if (editingProduct) {
@@ -480,16 +535,13 @@ export function ProductManagement() {
 
               // Check if it's Cloudinary setup issue
               if (imgErr.message?.includes("Upload failed")) {
-                alert(
-                  `⚠️ Lỗi upload ảnh lên Cloudinary.\n\n` +
-                    `Có thể bạn chưa setup Cloudinary. Xem console để biết hướng dẫn.\n\n` +
-                    `Hoặc tạm thời comment dòng import uploadService để dùng base64.`,
+                toast.error(
+                  "Lỗi upload ảnh lên Cloudinary. Có thể bạn chưa setup Cloudinary.",
                 );
                 console.error(uploadService.constructor.getSetupInstructions());
               } else {
-                alert(
-                  `Sản phẩm đã được cập nhật nhưng có lỗi khi lưu ảnh.\n\n` +
-                    `${imgErr?.response?.data?.message || imgErr?.message || "Lỗi không xác định"}`,
+                toast.error(
+                  `Sản phẩm đã được cập nhật nhưng có lỗi khi lưu ảnh: ${getReadableErrorMessage(imgErr, "Lỗi không xác định")}`,
                 );
               }
             }
@@ -516,9 +568,8 @@ export function ProductManagement() {
             }
           } catch (invErr: any) {
             console.error("❌ Lỗi cập nhật inventory:", invErr);
-            alert(
-              `Sản phẩm đã được cập nhật nhưng có lỗi khi cập nhật inventory.\n\n` +
-                `${invErr?.response?.data?.message || invErr?.message || "Lỗi không xác định"}`,
+            toast.error(
+              `Sản phẩm đã được cập nhật nhưng có lỗi khi cập nhật tồn kho: ${getReadableErrorMessage(invErr, "Lỗi không xác định")}`,
             );
           }
 
@@ -526,8 +577,9 @@ export function ProductManagement() {
           await fetchData();
           setShowAddModal(false);
           resetForm();
+          toast.success("Cập nhật sản phẩm thành công.");
         } else {
-          alert("Không thể cập nhật sản phẩm");
+          toast.error("Không thể cập nhật sản phẩm.");
         }
       } else {
         // Create new product
@@ -575,16 +627,13 @@ export function ProductManagement() {
 
               // Check if it's Cloudinary setup issue
               if (imgErr.message?.includes("Upload failed")) {
-                alert(
-                  `⚠️ Lỗi upload ảnh lên Cloudinary.\n\n` +
-                    `Có thể bạn chưa setup Cloudinary. Xem console để biết hướng dẫn.\n\n` +
-                    `Sản phẩm đã được tạo nhưng chưa có ảnh.`,
+                toast.error(
+                  "Lỗi upload ảnh lên Cloudinary. Sản phẩm đã được tạo nhưng chưa có ảnh.",
                 );
                 console.error(uploadService.constructor.getSetupInstructions());
               } else {
-                alert(
-                  `Sản phẩm đã được tạo nhưng có lỗi khi lưu ảnh.\n\n` +
-                    `${imgErr?.response?.data?.message || imgErr?.message || "Lỗi không xác định"}`,
+                toast.error(
+                  `Sản phẩm đã được tạo nhưng có lỗi khi lưu ảnh: ${getReadableErrorMessage(imgErr, "Lỗi không xác định")}`,
                 );
               }
             }
@@ -601,9 +650,8 @@ export function ProductManagement() {
             console.log("✅ Tạo inventory thành công");
           } catch (invErr: any) {
             console.error("❌ Lỗi tạo inventory:", invErr);
-            alert(
-              `Sản phẩm đã được tạo nhưng có lỗi khi tạo inventory.\n\n` +
-                `${invErr?.response?.data?.message || invErr?.message || "Lỗi không xác định"}`,
+            toast.error(
+              `Sản phẩm đã được tạo nhưng có lỗi khi tạo tồn kho: ${getReadableErrorMessage(invErr, "Lỗi không xác định")}`,
             );
           }
 
@@ -611,30 +659,20 @@ export function ProductManagement() {
           await fetchData();
           setShowAddModal(false);
           resetForm();
+          toast.success("Thêm sản phẩm thành công.");
         } else {
-          alert("Không thể tạo sản phẩm");
+          toast.error("Không thể tạo sản phẩm.");
         }
       }
     } catch (err: any) {
       console.error("❌ Error saving product:", err);
       console.error("Response data:", err?.response?.data);
 
-      let errorMessage = "Lỗi không xác định";
-
-      if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.response?.data?.errors) {
-        // Backend .NET validation errors là object {field: [messages]}
-        const errors = err.response.data.errors;
-        const errorMessages = Object.keys(errors)
-          .map((key) => `${key}: ${errors[key].join(", ")}`)
-          .join("\n");
-        errorMessage = errorMessages;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      alert(`Có lỗi xảy ra khi lưu sản phẩm:\n\n${errorMessage}`);
+      toast.error(
+        `Có lỗi xảy ra khi lưu sản phẩm: ${getReadableErrorMessage(err, "Lỗi không xác định")}`,
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -662,12 +700,12 @@ export function ProductManagement() {
     const validFiles = fileArray.filter((file) => {
       // Validate file type
       if (!file.type.startsWith("image/")) {
-        alert(`File ${file.name} không phải là ảnh`);
+        toast.error(`File ${file.name} không phải là ảnh.`);
         return false;
       }
       // Validate file size (max 5MB for base64)
       if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
+        toast.error(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
         return false;
       }
       return true;
@@ -700,11 +738,11 @@ export function ProductManagement() {
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter((file) => {
       if (!file.type.startsWith("image/")) {
-        alert(`File ${file.name} không phải là ảnh`);
+        toast.error(`File ${file.name} không phải là ảnh.`);
         return false;
       }
       if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
+        toast.error(`File ${file.name} vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
         return false;
       }
       return true;
@@ -742,8 +780,8 @@ export function ProductManagement() {
         setImagePreviews(imagePreviews.filter((_, i) => i !== index));
       } catch (error: any) {
         console.error("❌ Lỗi khi xóa ảnh:", error);
-        alert(
-          `Không thể xóa ảnh: ${error?.response?.data?.message || error?.message || "Lỗi không xác định"}`,
+        toast.error(
+          `Không thể xóa ảnh: ${getReadableErrorMessage(error, "Lỗi không xác định")}`,
         );
       }
     } else {
@@ -1050,7 +1088,7 @@ export function ProductManagement() {
                         <Edit className="h-5 w-5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteProduct(product.id)}
+                        onClick={() => setProductToDelete(product)}
                         className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Xóa"
                       >
@@ -1378,13 +1416,15 @@ export function ProductManagement() {
                   onClick={() => setShowAddModal(false)}
                   variant="outline"
                   className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 py-3"
+                  disabled={saving}
                 >
                   Hủy
                 </Button>
                 <Button
                   onClick={handleSaveProduct}
-                  className="flex-1 bg-[#D4AF37] hover:bg-[#C19A6B] text-white font-semibold py-3"
+                  className="relative flex-1 bg-[#D4AF37] hover:bg-[#C19A6B] text-white font-semibold py-3"
                   disabled={
+                    saving ||
                     !formData.name ||
                     !formData.categoryId ||
                     !formData.sku ||
@@ -1394,8 +1434,111 @@ export function ProductManagement() {
                   }
                 >
                   {editingProduct ? "Cập Nhật Sản Phẩm" : "Thêm Sản Phẩm"}
+                  {saving && (
+                    <span className="absolute inset-0 inline-flex items-center justify-center gap-2 rounded-md bg-[#D4AF37] text-white">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {editingProduct ? "Đang cập nhật..." : "Đang lưu..."}
+                    </span>
+                  )}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {productToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !deleting && setProductToDelete(null)}
+          />
+          <div
+            className="relative z-[51] w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-[#B71C1C] to-[#8B1538] px-6 py-5 text-white">
+              <h3
+                className="text-2xl font-bold"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Xác Nhận Xóa Sản Phẩm
+              </h3>
+              <p className="mt-1 text-sm text-white/85">
+                Hành động này sẽ xóa sản phẩm khỏi danh sách quản lý
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-5 flex items-start gap-4 rounded-2xl border border-red-100 bg-red-50 p-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white">
+                  <AlertTriangle className="h-6 w-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    Bạn có chắc muốn xóa sản phẩm này?
+                  </p>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Sản phẩm{" "}
+                    <span className="font-semibold text-[#B71C1C]">
+                      {productToDelete.name}
+                    </span>{" "}
+                    sẽ bị xóa khỏi danh sách hiện tại.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    {productToDelete.image.startsWith("http") ? (
+                      <img
+                        src={productToDelete.image}
+                        alt={productToDelete.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-2xl">{productToDelete.image}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-gray-900">
+                      {productToDelete.name}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      SKU: {productToDelete.sku}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#B71C1C]">
+                      {formatCurrency(productToDelete.price)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4">
+              <Button
+                variant="outline"
+                onClick={() => setProductToDelete(null)}
+                disabled={deleting}
+                className="min-w-[110px]"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleDeleteProduct}
+                disabled={deleting}
+                className="min-w-[140px] bg-red-600 text-white hover:bg-red-700"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xóa...
+                  </>
+                ) : (
+                  "Xóa Sản Phẩm"
+                )}
+              </Button>
             </div>
           </div>
         </div>

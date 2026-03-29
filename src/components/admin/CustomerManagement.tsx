@@ -14,6 +14,7 @@ import {
   User,
   Crown,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -238,11 +239,23 @@ export function CustomerManagement() {
 
   const handleDeleteCustomer = (customerId: string) => {
     if (confirm("Bạn có chắc muốn xóa khách hàng này?")) {
+      const targetCustomer = customers.find(
+        (customer) => customer.id === customerId,
+      );
       setCustomers(customers.filter((customer) => customer.id !== customerId));
+      toast.success(
+        targetCustomer
+          ? `Đã xóa khách hàng "${targetCustomer.name}".`
+          : "Đã xóa khách hàng thành công.",
+      );
     }
   };
 
   const handleToggleStatus = (customerId: string) => {
+    const targetCustomer = customers.find((customer) => customer.id === customerId);
+    const nextStatus =
+      targetCustomer?.status === "active" ? "blocked" : "active";
+
     setCustomers(
       customers.map((customer) =>
         customer.id === customerId
@@ -253,6 +266,14 @@ export function CustomerManagement() {
           : customer
       )
     );
+
+    if (targetCustomer) {
+      toast.success(
+        nextStatus === "active"
+          ? `Đã mở hoạt động cho "${targetCustomer.name}".`
+          : `Đã khóa khách hàng "${targetCustomer.name}".`,
+      );
+    }
   };
 
   const handleAddNewCustomer = () => {
@@ -269,6 +290,21 @@ export function CustomerManagement() {
   };
 
   const handleSaveCustomer = () => {
+    if (!formData.name.trim()) {
+      toast.error("Vui lòng nhập tên khách hàng.");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error("Vui lòng nhập email.");
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      toast.error("Vui lòng nhập số điện thoại.");
+      return;
+    }
+
     const newCustomer: Customer = {
       id: (customers.length + 1).toString(),
       userId: `CST-2026-${String(customers.length + 1).padStart(3, "0")}`,
@@ -302,6 +338,7 @@ export function CustomerManagement() {
       address: "",
       companyName: "",
     });
+    toast.success("Thêm khách hàng thành công.");
   };
 
   const filteredCustomers = customers.filter((customer) => {
