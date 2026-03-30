@@ -40,6 +40,8 @@ interface Product {
   inventory?: InventoryResponse | null;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const getReadableErrorMessage = (
   error: any,
   fallback: string,
@@ -78,6 +80,7 @@ export function ProductManagement() {
     updateInventory,
   } = useCatalog();
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -803,6 +806,27 @@ export function ProductManagement() {
     return matchesSearch && matchesCategory;
   });
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / ITEMS_PER_PAGE),
+  );
+
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedProducts = filteredProducts.slice(
+    (safeCurrentPage - 1) * ITEMS_PER_PAGE,
+    safeCurrentPage * ITEMS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const productStats = {
     total: products.length,
     active: products.filter((p) => p.status === "active").length,
@@ -997,7 +1021,7 @@ export function ProductManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <tr
                   key={product.id}
                   className="hover:bg-gray-50 transition-colors"
@@ -1114,24 +1138,62 @@ export function ProductManagement() {
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <p className="text-sm text-gray-600">
             Hiển thị{" "}
-            <span className="font-semibold">{filteredProducts.length}</span> /{" "}
-            <span className="font-semibold">{products.length}</span> sản phẩm
+            <span className="font-semibold text-gray-900">
+              {filteredProducts.length === 0
+                ? 0
+                : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1}
+            </span>{" "}
+            đến{" "}
+            <span className="font-semibold text-gray-900">
+              {Math.min(
+                safeCurrentPage * ITEMS_PER_PAGE,
+                filteredProducts.length,
+              )}
+            </span>{" "}
+            trong tổng số{" "}
+            <span className="font-semibold text-gray-900">
+              {filteredProducts.length}
+            </span>{" "}
+            sản phẩm
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Trước
-            </Button>
             <Button
               variant="outline"
               size="sm"
-              className="bg-[#B71C1C] text-white border-[#B71C1C]"
+              disabled={safeCurrentPage === 1}
+              onClick={() =>
+                setCurrentPage((previous) => Math.max(previous - 1, 1))
+              }
             >
-              1
+              Trước
             </Button>
-            <Button variant="outline" size="sm">
-              2
-            </Button>
-            <Button variant="outline" size="sm">
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+              (page) => (
+                <Button
+                  key={page}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className={
+                    safeCurrentPage === page
+                      ? "bg-[#B71C1C] text-white border-[#B71C1C]"
+                      : ""
+                  }
+                >
+                  {page}
+                </Button>
+              ),
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safeCurrentPage === totalPages}
+              onClick={() =>
+                setCurrentPage((previous) =>
+                  Math.min(previous + 1, totalPages),
+                )
+              }
+            >
               Sau
             </Button>
           </div>
