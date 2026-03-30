@@ -307,6 +307,14 @@ export function OrderManagement() {
 
           const normalizedPaymentMethod =
             apiOrder.paymentMethod?.trim().toUpperCase() || "";
+          const normalizedShippingFee =
+            apiOrder.shippingFee > 0
+              ? apiOrder.shippingFee
+              : Math.max(
+                  0,
+                  apiOrder.finalAmount -
+                    (apiOrder.totalAmount - apiOrder.discountAmount),
+                );
 
           return {
             id: apiOrder.orderNumber,
@@ -333,7 +341,7 @@ export function OrderManagement() {
             orderStatus: statusMap[apiOrder.currentStatus] || "pending",
             items,
             subtotal: apiOrder.totalAmount,
-            shippingFee: apiOrder.shippingFee,
+            shippingFee: normalizedShippingFee,
             discount: apiOrder.discountAmount,
             paymentMethod: apiOrder.paymentMethod?.trim() || "Chưa rõ",
             note: apiOrder.note,
