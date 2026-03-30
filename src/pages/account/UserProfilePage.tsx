@@ -57,7 +57,10 @@ interface BasketViewModel {
 
 export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   const { user, logout, fetchProfile } = useAuth();
-  const { fetchUserGiftBoxes: loadUserGiftBoxes } = useCatalog();
+  const {
+    fetchUserGiftBoxes: loadUserGiftBoxes,
+    fetchProductImages,
+  } = useCatalog();
   const profile = useSelector((state: RootState) => state.auth.profile);
   const { addItem } = useCart();
 
@@ -78,6 +81,9 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   );
   const [giftBoxes, setGiftBoxes] = useState<GiftBoxResponse[]>([]);
   const [isLoadingGiftBoxes, setIsLoadingGiftBoxes] = useState(false);
+  const [productImageMap, setProductImageMap] = useState<Record<string, string>>(
+    {},
+  );
   const giftBoxService = {
     getUserGiftBox: async () => ({
       data: {
@@ -113,6 +119,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
   useEffect(() => {
     if (!user?.id) {
       setGiftBoxes([]);
+      setProductImageMap({});
       return;
     }
 
@@ -126,7 +133,35 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
       setIsLoadingGiftBoxes(true);
       const response = await giftBoxService.getUserGiftBox();
       if (response.data.success) {
-        setGiftBoxes(response.data.data);
+        const userGiftBoxes = response.data.data;
+        const productIds = Array.from(
+          new Set(
+            userGiftBoxes.flatMap((giftBox) =>
+              (giftBox.boxComponents ?? [])
+                .map((component) => component.productId)
+                .filter(Boolean),
+            ),
+          ),
+        );
+
+        const imageEntries = await Promise.all(
+          productIds.map(async (productId) => {
+            try {
+              const images = await fetchProductImages(productId);
+              const mainImage = images.find((image) => image.isMain) ?? images[0];
+              return [productId, resolveImageUrl(mainImage?.url)] as const;
+            } catch {
+              return [productId, ""] as const;
+            }
+          }),
+        );
+
+        setProductImageMap(
+          Object.fromEntries(
+            imageEntries.filter(([, imageUrl]) => Boolean(imageUrl)),
+          ),
+        );
+        setGiftBoxes(userGiftBoxes);
       }
     } catch (error) {
       console.error("Error fetching gift boxes:", error);
@@ -146,7 +181,7 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
       name: component.productName || "",
       price: component.productPrice,
       quantity: component.quantity,
-      image: ""
+      image: productImageMap[component.productId] || ""
     })) || [];
 
     const fullImageUrl =
@@ -703,11 +738,20 @@ export function UserProfile({ onNavigate, onLogout }: UserProfileProps) {
                       >
                         {/* Product Image */}
                         <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-white border-2 border-[#D4AF37]/40 flex-shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(event) => {
+                                event.currentTarget.src = selectedBasket.image;
+                              }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FFF9E6] to-[#FDE7A3]">
+                              <Package className="h-8 w-8 text-[#B71C1C]/70" />
+                            </div>
+                          )}
                           {/* Gold corner accent */}
                           <div className="absolute top-0 right-0 w-0 h-0 border-t-[20px] border-t-[#D4AF37] border-l-[20px] border-l-transparent"></div>
                         </div>
