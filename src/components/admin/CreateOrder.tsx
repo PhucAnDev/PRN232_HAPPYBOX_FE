@@ -39,6 +39,15 @@ interface OrderDetail {
   image?: string;
 }
 
+interface SelectableItem {
+  id: string;
+  name: string;
+  price: number;
+  type: "product" | "giftbox";
+  image?: string;
+  availableQuantity: number;
+}
+
 interface CreateOrderProps {
   onBack: () => void;
 }
@@ -49,6 +58,8 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
     fetchProducts,
     fetchGiftBoxes,
     fetchProductImages,
+    fetchGiftBoxDetail,
+    fetchProductDetail,
   } = useCatalog();
   const { createOrder } = useOrders();
   const { fetchVouchers } = useVouchers();
@@ -85,6 +96,12 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
   const [apiGiftBoxes, setApiGiftBoxes] = useState<GiftBoxResponse[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [productImageMap, setProductImageMap] = useState<Record<string, string>>({});
+  const [productStockMap, setProductStockMap] = useState<Record<string, number>>(
+    {},
+  );
+  const [giftBoxStockMap, setGiftBoxStockMap] = useState<Record<string, number>>(
+    {},
+  );
   const [productPage, setProductPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
@@ -143,6 +160,7 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
       const data = await fetchProductImages(productId);
       return {
         data: {
+          success: true,
           data: data.images,
         },
       };
@@ -155,6 +173,124 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
         data: await createOrder(payload),
       },
     }),
+  };
+
+  const getItemKey = (item: Pick<OrderDetail, "productId" | "giftBoxId">) =>
+    item.productId ? `product:${item.productId}` : `giftbox:${item.giftBoxId}`;
+
+  const calculateGiftBoxAvailableQuantity = (
+    giftBox: GiftBoxResponse,
+    nextProductStockMap: Record<string, number>,
+  ) => {
+    const components =
+      giftBox.boxComponents?.filter((component) => component.quantity > 0) ?? [];
+
+    if (components.length === 0) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        ...components.map((component) =>
+          Math.floor(
+            (nextProductStockMap[component.productId] ?? 0) / component.quantity,
+          ),
+        ),
+      ),
+    );
+  };
+
+  const getGiftBoxById = (giftBoxId: string | null) =>
+    giftBoxId ? apiGiftBoxes.find((giftBox) => giftBox.id === giftBoxId) : undefined;
+
+  const getProductUsageForDetail = (
+    detail: Pick<OrderDetail, "productId" | "giftBoxId">,
+    quantity: number,
+  ) => {
+    if (detail.productId) {
+      return { [detail.productId]: quantity };
+    }
+
+    if (detail.giftBoxId) {
+      const giftBox = getGiftBoxById(detail.giftBoxId);
+      const components =
+        giftBox?.boxComponents?.filter((component) => component.quantity > 0) ?? [];
+
+      return components.reduce<Record<string, number>>((usage, component) => {
+        usage[component.productId] =
+          (usage[component.productId] ?? 0) + component.quantity * quantity;
+        return usage;
+      }, {});
+    }
+
+    return {};
+  };
+
+  const getConsumedProductQuantity = (productId: string, excludeIndex?: number) =>
+    orderDetails.reduce((sum, detail, index) => {
+      if (excludeIndex === index) {
+        return sum;
+      }
+
+      return sum + (getProductUsageForDetail(detail, detail.quantity)[productId] ?? 0);
+    }, 0);
+
+  const getAvailableQuantityForSelection = (
+    item: Pick<SelectableItem, "id" | "type">,
+    excludeIndex?: number,
+  ) => {
+    if (item.type === "product") {
+      return Math.max(
+        0,
+        (productStockMap[item.id] ?? 0) -
+          getConsumedProductQuantity(item.id, excludeIndex),
+      );
+    }
+
+    const giftBox = getGiftBoxById(item.id);
+    const components =
+      giftBox?.boxComponents?.filter((component) => component.quantity > 0) ?? [];
+
+    if (components.length === 0) {
+      return giftBoxStockMap[item.id] ?? 0;
+    }
+
+    return Math.max(
+      0,
+      Math.min(
+        ...components.map((component) =>
+          Math.floor(
+            Math.max(
+              0,
+              (productStockMap[component.productId] ?? 0) -
+                getConsumedProductQuantity(component.productId, excludeIndex),
+            ) / component.quantity,
+          ),
+        ),
+      ),
+    );
+  };
+
+  const getAvailableQuantityForDetail = (
+    detail: Pick<OrderDetail, "productId" | "giftBoxId">,
+    excludeIndex?: number,
+  ) =>
+    getAvailableQuantityForSelection(
+      {
+        id: detail.productId ?? detail.giftBoxId ?? "",
+        type: detail.productId ? "product" : "giftbox",
+      },
+      excludeIndex,
+    );
+
+  const getMaxQuantityForIndex = (index: number) => {
+    const detail = orderDetails[index];
+    if (!detail) {
+      return 1;
+    }
+
+    return Math.max(1, getAvailableQuantityForDetail(detail, index));
   };
 
   // Load tất cả tỉnh/thành phố khi mount
@@ -219,8 +355,36 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
       giftBoxService.getAll().then(r => r.data.data).catch(() => [] as GiftBoxResponse[]),
     ]).then(async ([products, giftBoxes]) => {
       const activeProducts = products.filter(p => p.isActive);
+      const activeGiftBoxes = giftBoxes.filter(g => g.isActive && !g.isCustom);
       setApiProducts(activeProducts);
-      setApiGiftBoxes(giftBoxes.filter(g => g.isActive));
+      setApiGiftBoxes(activeGiftBoxes);
+
+      const productStockEntries = await Promise.all(
+        activeProducts.map((product) =>
+          fetchProductDetail(product.id)
+            .then((detail) => [product.id, detail.inventory?.quantity ?? 0] as [string, number])
+            .catch(() => [product.id, 0] as [string, number]),
+        ),
+      );
+      const nextProductStockMap = Object.fromEntries(productStockEntries);
+      setProductStockMap(nextProductStockMap);
+
+      const detailedGiftBoxes = await Promise.all(
+        activeGiftBoxes.map((giftBox) =>
+          giftBox.boxComponents && giftBox.boxComponents.length > 0
+            ? Promise.resolve(giftBox)
+            : fetchGiftBoxDetail(giftBox.id).catch(() => giftBox),
+        ),
+      );
+      setApiGiftBoxes(detailedGiftBoxes);
+
+      const nextGiftBoxStockMap = Object.fromEntries(
+        detailedGiftBoxes.map((giftBox) => [
+          giftBox.id,
+          calculateGiftBoxAvailableQuantity(giftBox, nextProductStockMap),
+        ]),
+      );
+      setGiftBoxStockMap(nextGiftBoxStockMap);
       // Fetch images for all products in parallel
       const imageEntries = await Promise.all(
         activeProducts.map(p =>
@@ -237,10 +401,20 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
     }).finally(() => setItemsLoading(false));
   }, [showProductSearch]);
 
-  const filteredItems = searchType === "product"
+  const filteredItems: SelectableItem[] = searchType === "product"
     ? apiProducts
         .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-        .map(p => ({ id: p.id, name: p.name, price: p.price, type: "product" as const, image: productImageMap[p.id] ?? "" }))
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          type: "product" as const,
+          image: productImageMap[p.id] ?? "",
+          availableQuantity: getAvailableQuantityForSelection({
+            id: p.id,
+            type: "product",
+          }),
+        }))
     : apiGiftBoxes
         .filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()))
         .map(g => ({
@@ -249,6 +423,10 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
           price: g.basePrice,
           type: "giftbox" as const,
           image: resolveImageUrl(g.images?.find(i => i.isMain)?.url ?? g.images?.[0]?.url ?? ""),
+          availableQuantity: getAvailableQuantityForSelection({
+            id: g.id,
+            type: "giftbox",
+          }),
         }));
 
   const totalProductPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
@@ -261,7 +439,19 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
     }).format(amount);
   };
 
-  const addOrderDetail = (item: { id: string; name: string; price: number; type: "product" | "giftbox"; image?: string }) => {
+  const addOrderDetail = (item: SelectableItem) => {
+    const availableQuantity = getAvailableQuantityForSelection(item);
+
+    if (availableQuantity < 1) {
+      toast.error("Số lượng không đủ", {
+        description:
+          item.type === "giftbox"
+            ? "Giỏ quà này hiện không đủ thành phần để thêm vào đơn hàng."
+            : "Sản phẩm này hiện đã hết hàng.",
+      });
+      return;
+    }
+
     const newDetail: OrderDetail = {
       productId: item.type === "product" ? item.id : null,
       giftBoxId: item.type === "giftbox" ? item.id : null,
@@ -270,14 +460,34 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
       name: item.name,
       image: item.image,
     };
-    setOrderDetails([...orderDetails, newDetail]);
+
+    const existingIndex = orderDetails.findIndex(
+      (detail) => getItemKey(detail) === getItemKey(newDetail),
+    );
+
+    if (existingIndex >= 0) {
+      if (availableQuantity < 1) {
+        toast.error("Vượt quá tồn kho", {
+          description: `Chỉ còn ${item.availableQuantity} ${
+            item.type === "giftbox" ? "giỏ quà" : "sản phẩm"
+          } khả dụng.`,
+        });
+        return;
+      }
+
+      updateQuantity(existingIndex, orderDetails[existingIndex].quantity + 1);
+    } else {
+      setOrderDetails([...orderDetails, newDetail]);
+    }
+
     setShowProductSearch(false);
     setSearchQuery("");
   };
 
   const updateQuantity = (index: number, quantity: number) => {
+    const maxQuantity = getMaxQuantityForIndex(index);
     const updated = [...orderDetails];
-    updated[index].quantity = Math.max(1, quantity);
+    updated[index].quantity = Math.min(Math.max(1, quantity), maxQuantity);
     setOrderDetails(updated);
   };
 
@@ -379,6 +589,26 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
     if (!user?.id) {
       toast.error("Lỗi xác thực", {
         description: "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.",
+      });
+      return;
+    }
+
+    const invalidItem = orderDetails.find((detail) => {
+      const detailIndex = orderDetails.indexOf(detail);
+      const availableQuantity = getAvailableQuantityForDetail(detail, detailIndex);
+      return detail.quantity > availableQuantity;
+    });
+
+    if (invalidItem) {
+      const detailIndex = orderDetails.indexOf(invalidItem);
+      const availableQuantity = getAvailableQuantityForDetail(
+        invalidItem,
+        detailIndex,
+      );
+      toast.error("Số lượng vượt tồn kho", {
+        description: `${
+          invalidItem.name ?? "Sản phẩm"
+        } chỉ còn ${availableQuantity} đơn vị khả dụng.`,
       });
       return;
     }
@@ -578,14 +808,10 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Phương Thức Thanh Toán <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   <button
-                    onClick={() => setPaymentMethod("COD")}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      paymentMethod === "COD"
-                        ? "border-[#B71C1C] bg-red-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    type="button"
+                    className="p-4 rounded-lg border-2 border-[#B71C1C] bg-red-50"
                   >
                     <div className="flex items-center justify-center gap-2">
                       <Package className="h-5 w-5" />
@@ -598,7 +824,7 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
 
                   <button
                     onClick={() => setPaymentMethod("Online")}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`hidden p-4 rounded-lg border-2 transition-all ${
                       paymentMethod === "Online"
                         ? "border-[#B71C1C] bg-red-50"
                         : "border-gray-200 hover:border-gray-300"
@@ -683,7 +909,11 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
               </div>
             ) : (
               <div className="space-y-3">
-                {orderDetails.map((detail, index) => (
+                {orderDetails.map((detail, index) => {
+                  const availableQuantity = getAvailableQuantityForDetail(detail, index);
+                  const maxQuantity = getMaxQuantityForIndex(index);
+
+                  return (
                   <div
                     key={index}
                     className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
@@ -710,6 +940,9 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                       <p className="font-semibold text-gray-900 truncate">
                         {detail.name}
                       </p>
+                      <p className="text-xs text-gray-500">
+                        Khả dụng: {availableQuantity}
+                      </p>
                       <p className="text-sm text-gray-600">
                         {detail.giftBoxId ? "Giỏ Quà" : "Sản Phẩm"} •{" "}
                         {formatCurrency(detail.price)}
@@ -720,7 +953,8 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => updateQuantity(index, detail.quantity - 1)}
-                          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                          disabled={detail.quantity <= 1}
+                          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           -
                         </button>
@@ -732,10 +966,16 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                           onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 0); }}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/\D/g, '');
-                            setQuantityInputs(prev => ({ ...prev, [index]: raw }));
                             if (raw !== '') {
                               const value = Math.max(1, parseInt(raw));
+                              const normalizedValue = Math.min(value, maxQuantity);
+                              setQuantityInputs(prev => ({
+                                ...prev,
+                                [index]: normalizedValue.toString(),
+                              }));
                               updateQuantity(index, value);
+                            } else {
+                              setQuantityInputs(prev => ({ ...prev, [index]: raw }));
                             }
                           }}
                           onBlur={() => {
@@ -750,7 +990,8 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                         />
                         <button
                           onClick={() => updateQuantity(index, detail.quantity + 1)}
-                          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                          disabled={detail.quantity >= maxQuantity}
+                          className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           +
                         </button>
@@ -770,7 +1011,7 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
@@ -942,8 +1183,10 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                 ) : pagedItems.map((item) => (
                   <button
                     key={item.id}
+                    type="button"
                     onClick={() => addOrderDetail(item)}
-                    className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors text-left"
+                    disabled={item.availableQuantity < 1}
+                    className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 ${
                       item.image ? "" :
@@ -967,8 +1210,15 @@ export function CreateOrder({ onBack }: CreateOrderProps) {
                           {formatCurrency(item.price)}
                         </span>
                       </p>
+                      <p className="text-xs text-gray-500">
+                        Khả dụng: {item.availableQuantity}
+                      </p>
                     </div>
-                    <Plus className="h-5 w-5 text-gray-400" />
+                    <Plus
+                      className={`h-5 w-5 ${
+                        item.availableQuantity < 1 ? "text-gray-300" : "text-gray-400"
+                      }`}
+                    />
                   </button>
                 ))}
               </div>
