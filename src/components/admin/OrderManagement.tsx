@@ -305,6 +305,9 @@ export function OrderManagement() {
             [OrderStatus.Returned]: "returned",
           };
 
+          const normalizedPaymentMethod =
+            apiOrder.paymentMethod?.trim().toUpperCase() || "";
+
           return {
             id: apiOrder.orderNumber,
             backendId: apiOrder.id, // Store backend GUID for API updates
@@ -323,13 +326,16 @@ export function OrderManagement() {
             },
             date: new Date(apiOrder.createdAt).toLocaleDateString("vi-VN"),
             amount: apiOrder.finalAmount,
-            paymentStatus: apiOrder.paymentMethod === "COD" ? "unpaid" : "paid",
+            paymentStatus:
+              !normalizedPaymentMethod || normalizedPaymentMethod === "COD"
+                ? "unpaid"
+                : "paid",
             orderStatus: statusMap[apiOrder.currentStatus] || "pending",
             items,
             subtotal: apiOrder.totalAmount,
             shippingFee: apiOrder.shippingFee,
             discount: apiOrder.discountAmount,
-            paymentMethod: apiOrder.paymentMethod,
+            paymentMethod: apiOrder.paymentMethod?.trim() || "Chưa rõ",
             note: apiOrder.note,
           };
         });
@@ -358,8 +364,8 @@ export function OrderManagement() {
         label: "Chờ xử lý",
       },
       confirmed: {
-        bg: "bg-cyan-100",
-        text: "text-cyan-800",
+        bg: "bg-[#DCFCE7] ring-1 ring-inset ring-[#86EFAC]",
+        text: "text-[#166534]",
         label: "Đã xác nhận",
       },
       processing: {
@@ -1407,7 +1413,7 @@ export function OrderManagement() {
                           newStatus === "pending"
                             ? "bg-yellow-50 text-yellow-800 border-yellow-200"
                             : newStatus === "confirmed"
-                              ? "bg-cyan-50 text-cyan-800 border-cyan-200"
+                              ? "bg-[#DCFCE7] text-[#166534] border-[#86EFAC]"
                               : newStatus === "processing"
                                 ? "bg-blue-50 text-blue-800 border-blue-200"
                                 : newStatus === "shipping"
@@ -1427,7 +1433,7 @@ export function OrderManagement() {
                               newStatus === "pending"
                                 ? "bg-yellow-100 border-yellow-400"
                                 : newStatus === "confirmed"
-                                  ? "bg-cyan-100 border-cyan-400"
+                                  ? "bg-[#BBF7D0] border-[#22C55E]"
                                   : newStatus === "processing"
                                     ? "bg-blue-100 border-blue-400"
                                     : newStatus === "shipping"
@@ -1491,10 +1497,10 @@ export function OrderManagement() {
                             {
                               value: "confirmed",
                               label: "Đã xác nhận",
-                              bg: "bg-cyan-50",
-                              border: "border-cyan-400",
-                              text: "text-cyan-800",
-                              circleBg: "bg-cyan-100",
+                              bg: "bg-[#DCFCE7]",
+                              border: "border-[#22C55E]",
+                              text: "text-[#166534]",
+                              circleBg: "bg-[#BBF7D0]",
                             },
                             {
                               value: "processing",
