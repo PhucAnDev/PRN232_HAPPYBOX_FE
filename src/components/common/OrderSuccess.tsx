@@ -146,6 +146,14 @@ export function OrderSuccess({ orderData, onNavigate }: OrderSuccessProps) {
     }
   };
 
+  const inferredShippingFee = Math.max(
+    0,
+    orderData.finalAmount - (orderData.totalAmount - orderData.discountAmount),
+  );
+  const effectiveShippingFee =
+    orderData.shippingFee > 0 ? orderData.shippingFee : inferredShippingFee;
+  const hasFreeShipping = effectiveShippingFee === 0;
+
   // 0=Pending,1=Confirmed,2=Processing,3=Shipping,4=Delivered,5=Cancelled,6=Returned
   const getStatusColor = (status: number) => {
     switch (status) {
@@ -239,10 +247,10 @@ export function OrderSuccess({ orderData, onNavigate }: OrderSuccessProps) {
               <div>
                 <p className="text-xs text-gray-500 mb-1">Phí vận chuyển</p>
                 <p className="font-semibold text-gray-900">
-                  {orderData.shippingFee === 0 ? (
+                  {hasFreeShipping ? (
                     <span className="text-green-600">Miễn phí</span>
                   ) : (
-                    formatCurrency(orderData.shippingFee)
+                    formatCurrency(effectiveShippingFee)
                   )}
                 </p>
               </div>
@@ -322,10 +330,10 @@ export function OrderSuccess({ orderData, onNavigate }: OrderSuccessProps) {
             <div className="flex justify-between text-gray-700">
               <span>Phí vận chuyển:</span>
               <span className="font-semibold">
-                {orderData.shippingFee === 0 ? (
+                {hasFreeShipping ? (
                   <span className="text-green-600">Miễn phí</span>
                 ) : (
-                  formatCurrency(orderData.shippingFee)
+                  formatCurrency(effectiveShippingFee)
                 )}
               </span>
             </div>
